@@ -1,0 +1,51 @@
+{
+  "status": "unstable_pilot_no_adapter_claimed",
+  "host": {
+    "architecture": "arm64",
+    "memory_bytes": 8589934592,
+    "metal_available": true
+  },
+  "base_model": "mlx-community/Qwen2.5-1.5B-Instruct-4bit",
+  "attempts": [
+    {
+      "config": "training/mlx_lora_config.yaml",
+      "learning_rate": 2e-05,
+      "iterations_observed": 20,
+      "validation_loss_iteration_1": 3.291,
+      "training_loss_iteration_5": 3.583,
+      "training_loss_iteration_10": "NaN",
+      "training_loss_iteration_15": "NaN",
+      "training_loss_iteration_20": "NaN",
+      "outcome": "Stopped after non-finite loss; no adapter weights checkpointed."
+    },
+    {
+      "config": "training/mlx_lora_pilot.yaml",
+      "learning_rate": 1e-06,
+      "iterations_observed": 15,
+      "validation_loss_iteration_1": 3.291,
+      "training_loss_iteration_5": 3.583,
+      "training_loss_iteration_10": "NaN",
+      "training_loss_iteration_15": "NaN",
+      "outcome": "Lower learning rate did not prevent non-finite loss; no adapter weights checkpointed."
+    },
+    {
+      "config": "training/mlx_lora_nocheckpoint_pilot.yaml",
+      "learning_rate": 1e-06,
+      "fine_tuned_layers": 8,
+      "gradient_checkpointing": false,
+      "iterations_observed": 20,
+      "validation_loss_iteration_1": 3.291,
+      "validation_loss_iteration_20": 3.234,
+      "training_loss_iteration_20": 2.991,
+      "outcome": "20-iteration stability pilot completed with finite loss; adapter checkpoint is only a pilot, not a completed fine-tune."
+    }
+  ],
+  "note": "Loss figures are copied from local MLX-LM terminal logs. This is an instability report, not a fine-tuning result.",
+  "pilot_generation_evaluation": {
+    "heldout_examples": 42,
+    "json_parse_rate": 0.0,
+    "wardrobe_id_compliant_count": 0,
+    "mean_generation_seconds": 4.8036,
+    "interpretation": "Short pilot did not improve required JSON structure; a full one-pass train remains an experiment."
+  }
+}

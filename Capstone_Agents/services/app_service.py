@@ -1,0 +1,425 @@
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from database import connection, ensure_user, row, rows, utc_now
+
+
+def _password_hash(password: str, salt: bytes | None = None) -> str:
+    salt = salt or secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 310_000)
+    return f"{base64.b64encode(salt).decode()}:{base64.b64encode(digest).decode()}"
+
+
+def _verify_password(password: str, encoded: str) -> bool:
+    try:
+        salt_text, expected = encoded.split(":", 1)
+        actual = _password_hash(password, base64.b64decode(salt_text)).split(":", 1)[1]
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def _public_user(record: dict[str, Any]) -> dict[str, Any]:
+    profile = json.loads(record.get("profile_json") or "{}")
+    return {
+        "id": record["user_id"],
+        "fullName": record.get("display_name") or "",
+        "email": record.get("email") or "",
+        "avatarUrl": record.get("avatar_url"),
+        "location": record.get("location") or "",
+        "stylePreferences": profile.get("stylePreferences", []),
+        "bodyShape": profile.get("bodyShape"),
+        "skinTone": profile.get("skinTone"),
+        "heightCm": profile.get("heightCm"),
+        "topSize": profile.get("topSize"),
+        "bottomSize": profile.get("bottomSize"),
+        "itemsCount": int(record.get("items_count") or 0),
+        "outfitsSaved": int(record.get("outfits_saved") or 0),
+        "following": int(record.get("following") or 0),
+        "followers": int(record.get("followers") or 0),
+        "profileComplete": bool(profile.get("profileComplete", False)),
+    }
+
+
+USER_QUERY = """
+SELECT u.*,
+ (SELECT COUNT(*) FROM clothing_items c WHERE c.user_id=u.user_id AND c.available=1) items_count,
+ (SELECT COUNT(*) FROM feedback f WHERE f.user_id=u.user_id AND f.action='save') outfits_saved,
+ (SELECT COUNT(*) FROM follows f WHERE f.follower_id=u.user_id) following,
+ (SELECT COUNT(*) FROM follows f WHERE f.followed_id=u.user_id) followers
+FROM users u
+"""
+
+
+def signup(full_name: str, email: str, password: str) -> tuple[dict, str]:
+    email = email.strip().lower()
+    if row("SELECT user_id FROM users WHERE lower(email)=?", (email,)):
+        raise ValueError("An account with this email already exists.")
+    user_id = f"user_{uuid.uuid4().hex[:16]}"
+    now = utc_now()
+    with connection() as db:
+        db.execute(
+            """INSERT INTO users(user_id,display_name,email,password_hash,created_at)
+               VALUES(?,?,?,?,?)""",
+            (user_id, full_name.strip(), email, _password_hash(password), now),
+        )
+    return get_user(user_id), create_session(user_id)
+
+
+def login(email: str, password: str) -> tuple[dict, str]:
+    record = row("SELECT * FROM users WHERE lower(email)=?", (email.strip().lower(),))
+    if not record or not record.get("password_hash") or not _verify_password(password, record["password_hash"]):
+        raise ValueError("Invalid email or password.")
+    return get_user(record["user_id"]), create_session(record["user_id"])
+
+
+def create_session(user_id: str) -> str:
+    token = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    with connection() as db:
+        db.execute(
+            "INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
+            (digest, user_id, expires, utc_now()),
+        )
+    return token
+
+
+def session_user(token: str) -> dict | None:
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    record = row("SELECT user_id,expires_at FROM sessions WHERE token_hash=?", (digest,))
+    if not record or datetime.fromisoformat(record["expires_at"]) <= datetime.now(timezone.utc):
+        return None
+    return get_user(record["user_id"])
+
+
+def logout(token: str) -> None:
+    with connection() as db:
+        db.execute("DELETE FROM sessions WHERE token_hash=?", (hashlib.sha256(token.encode()).hexdigest(),))
+
+
+def get_user(user_id: str) -> dict:
+    record = row(f"{USER_QUERY} WHERE u.user_id=?", (user_id,))
+    if not record:
+        raise KeyError(user_id)
+    return _public_user(record)
+
+
+def update_user(user_id: str, data: dict[str, Any]) -> dict:
+    current = row("SELECT * FROM users WHERE user_id=?", (user_id,))
+    if not current:
+        raise KeyError(user_id)
+    profile = json.loads(current.get("profile_json") or "{}")
+    for key in ("stylePreferences", "bodyShape", "skinTone", "heightCm", "topSize", "bottomSize", "profileComplete"):
+        if key in data:
+            profile[key] = data[key]
+    with connection() as db:
+        db.execute(
+            """UPDATE users SET display_name=?,avatar_url=?,location=?,profile_json=?
+               WHERE user_id=?""",
+            (
+                data.get("fullName", current.get("display_name")),
+                data.get("avatarUrl", current.get("avatar_url")),
+                data.get("location", current.get("location") or ""),
+                json.dumps(profile),
+                user_id,
+            ),
+        )
+    return get_user(user_id)
+
+
+def list_products() -> list[dict]:
+    records = rows(
+        """SELECT p.*,u.display_name seller_name,u.avatar_url seller_avatar
+           FROM products p JOIN users u ON u.user_id=p.seller_id
+           WHERE p.status='active' ORDER BY p.created_at DESC"""
+    )
+    return [_product(record) for record in records]
+
+
+def create_product(seller_id: str, data: dict) -> dict:
+    product_id = f"prd_{uuid.uuid4().hex[:16]}"
+    with connection() as db:
+        db.execute(
+            """INSERT INTO products(product_id,seller_id,title,price,image_urls,category,condition,description,status,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            (product_id, seller_id, data["title"], data["price"], json.dumps(data["image_urls"]),
+             data["category"], data["condition"], data["description"], "active", utc_now()),
+        )
+    record = row(
+        """SELECT p.*,u.display_name seller_name,u.avatar_url seller_avatar
+           FROM products p JOIN users u ON u.user_id=p.seller_id WHERE p.product_id=?""",
+        (product_id,),
+    )
+    return _product(record)
+
+
+def seller_dashboard(user_id: str) -> dict:
+    listings = rows("SELECT * FROM products WHERE seller_id=? ORDER BY created_at DESC", (user_id,))
+    orders = rows(
+        """SELECT o.*,p.title FROM orders o JOIN products p ON p.product_id=o.product_id
+           WHERE o.seller_id=? ORDER BY o.created_at DESC""",
+        (user_id,),
+    )
+    return {
+        "stats": {
+            "totalSales": sum(1 for order in orders if order["status"] in {"shipped", "completed"}),
+            "revenue": sum(float(order["amount"]) for order in orders if order["status"] in {"shipped", "completed"}),
+            "activeListings": sum(1 for listing in listings if listing["status"] == "active"),
+        },
+        "listings": [
+            {"id": item["product_id"], "title": item["title"], "price": item["price"],
+             "imageUrl": (json.loads(item["image_urls"]) or [""])[0], "status": item["status"]}
+            for item in listings
+        ],
+        "orders": [
+            {"id": item["order_id"], "productTitle": item["title"], "status": item["status"],
+             "amount": item["amount"], "date": item["created_at"]}
+            for item in orders
+        ],
+    }
+
+
+def _product(record: dict) -> dict:
+    return {
+        "id": record["product_id"], "title": record["title"], "price": record["price"],
+        "imageUrls": json.loads(record["image_urls"]), "category": record["category"],
+        "condition": record["condition"], "description": record["description"],
+        "seller": {"id": record["seller_id"], "name": record.get("seller_name") or "Seller",
+                   "avatarUrl": record.get("seller_avatar") or "", "rating": 5.0, "responseTime": "New seller"},
+        "rating": 0, "reviewCount": 0, "isNew": record["condition"] == "new",
+    }
+
+
+def create_order(buyer_id: str, product_ids: list[str]) -> list[str]:
+    order_ids = []
+    ensure_user(buyer_id)
+    with connection() as db:
+        for product_id in product_ids:
+            product = db.execute("SELECT * FROM products WHERE product_id=? AND status='active'", (product_id,)).fetchone()
+            if not product:
+                raise KeyError(product_id)
+            order_id = f"ord_{uuid.uuid4().hex[:16]}"
+            db.execute(
+                "INSERT INTO orders(order_id,buyer_id,seller_id,product_id,amount,status,created_at) VALUES(?,?,?,?,?,'pending',?)",
+                (order_id, buyer_id, product["seller_id"], product_id, product["price"], utc_now()),
+            )
+            db.execute("UPDATE products SET status='sold' WHERE product_id=?", (product_id,))
+            order_ids.append(order_id)
+    return order_ids
+
+
+def _requests_outfit(content: str) -> bool:
+    text = content.lower()
+    phrases = (
+        "what should i wear", "what to wear", "wear", "outfit", "recommend",
+        "suggest", "style me", "style my", "style this", "style the", "match this",
+        "matches this", "pair my", "what goes with", "build an outfit", "look for",
+        "date", "party", "meeting", "wedding", "interview", "travel",
+        "casual", "office", "work", "college", "event",
+    )
+    return any(phrase in text for phrase in phrases)
+
+
+def _recent_chat(user_id: str, session_id: str, limit: int = 16) -> list[dict[str, str]]:
+    records = rows(
+        "SELECT role,content FROM chat_messages WHERE user_id=? AND session_id=? "
+        "ORDER BY created_at DESC LIMIT ?",
+        (user_id, session_id, limit),
+    )
+    return [
+        {"role": record["role"], "content": record["content"]}
+        for record in reversed(records)
+    ]
+
+
+def _offline_chat_reply(
+    content: str,
+    user: dict[str, Any],
+    items: list[dict[str, Any]],
+) -> str:
+    text = content.lower().strip(" ?.!")
+    name = (user.get("fullName") or "").split(" ")[0]
+    greeting = f"Hi {name}!" if name else "Hi!"
+    if text in {"hi", "hello", "hey", "hii", "helo"}:
+        return f"{greeting} How can I help with your outfit or wardrobe today?"
+    if "thank" in text:
+        return "You’re welcome! Ask me anytime you want another outfit or styling explanation."
+    if "confus" in text or "explain" in text:
+        return "Of course. Tell me which outfit or part feels confusing, and I’ll explain the colour, occasion, and compatibility reasoning."
+    if "trend" in text and ("color" in text or "colour" in text):
+        colors = list(dict.fromkeys(item["color_name"] for item in items))[:5]
+        owned = ", ".join(colors) if colors else "no uploaded colours yet"
+        return (
+            f"Your wardrobe currently includes {owned}. I can build combinations from these; "
+            "I only have cached fashion context, so I cannot confirm what is trending now."
+        )
+    return (
+        "I can help with outfits, colour matching, dress codes, fit, and your uploaded "
+        "wardrobe. Tell me what you are dressing for or what you want to wear."
+    )
+
+
+def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
+    ensure_user(user_id)
+    items = rows(
+        "SELECT item_id,subcategory,color_name,category,style_tags,fabric,pattern,fit "
+        "FROM clothing_items WHERE user_id=? AND available=1 LIMIT 40",
+        (user_id,),
+    )
+    history = _recent_chat(user_id, session_id)
+    wants_outfit = _requests_outfit(content)
+    outfit = None
+    best = None
+    if items and wants_outfit:
+        text = content.lower()
+        occasion = next(
+            (value for value in ("smart casual", "date", "party", "meeting", "wedding", "interview", "travel", "college", "office", "work", "formal", "festival", "casual") if value in text),
+            "casual",
+        )
+        from services.recommendation_service import recommend
+
+        suggestions, _agent_trace = recommend(user_id, occasion, 25.0, "Unknown", 12)
+        if suggestions:
+            requested_colors = {
+                item["color_name"].lower()
+                for item in items
+                if item["color_name"].lower() in text
+            }
+            best = next(
+                (
+                    suggestion
+                    for suggestion in suggestions
+                    if requested_colors
+                    and any(
+                        item["color_name"].lower() in requested_colors
+                        for item in suggestion["items"]
+                    )
+                ),
+                suggestions[0],
+            )
+            selected = ", ".join(
+                f"{item['color_name']} {item['subcategory']}" for item in best["items"]
+            )
+            reply = (
+                f"For {occasion}, wear your {selected}. "
+                f"Compatibility: {best['compatibility_score']}%. {best['explanation']}"
+            )
+            outfit = {
+                "id": best["recommendation_id"],
+                "name": f"{occasion.title()} Outfit",
+                "occasion": occasion,
+                "compatibilityScore": best["compatibility_score"],
+                "imageUrl": best["items"][0]["image_url"],
+                "itemIds": best["item_ids"],
+                "explanation": best["explanation"],
+                "componentScores": best["component_scores"],
+            }
+        else:
+            reply = "I found your uploaded clothes, but need a dress or at least one top and one bottom to build a complete outfit."
+    elif not items and wants_outfit:
+        reply = "Upload a dress, or a top and bottom, so I can recommend outfits from clothes you actually own."
+    else:
+        reply = _offline_chat_reply(content, get_user(user_id), items)
+    from services.llm_stylist import stylist_reply
+
+    reply = stylist_reply(
+        message=content,
+        user=get_user(user_id),
+        wardrobe=items,
+        recommendation=best,
+        conversation_history=history,
+        wants_outfit=wants_outfit,
+        fallback=reply,
+    )
+    now = utc_now()
+    user_message = f"msg_{uuid.uuid4().hex[:16]}"
+    assistant_message = f"msg_{uuid.uuid4().hex[:16]}"
+    with connection() as db:
+        db.execute(
+            "INSERT INTO chat_messages(message_id,user_id,session_id,role,content,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)",
+            (user_message, user_id, session_id, "user", content, "{}", now),
+        )
+        db.execute(
+            "INSERT INTO chat_messages(message_id,user_id,session_id,role,content,metadata_json,created_at) VALUES(?,?,?,?,?,?,?)",
+            (assistant_message, user_id, session_id, "assistant", reply, json.dumps({"outfit": outfit} if outfit else {}), utc_now()),
+        )
+    response = {"id": assistant_message, "role": "assistant", "content": reply, "timestamp": utc_now()}
+    if outfit:
+        response["outfit"] = outfit
+    return response
+
+
+def chat_history(user_id: str, session_id: str = "legacy") -> list[dict]:
+    history = []
+    for record in rows(
+        "SELECT * FROM chat_messages WHERE user_id=? AND session_id=? ORDER BY created_at",
+        (user_id, session_id),
+    ):
+        message = {
+            "id": record["message_id"], "role": record["role"],
+            "content": record["content"], "timestamp": record["created_at"],
+        }
+        metadata = json.loads(record.get("metadata_json") or "{}")
+        message.update(metadata)
+        history.append(message)
+    return history
+
+
+def social_feed(viewer_id: str) -> list[dict]:
+    records = rows(
+        """SELECT p.*,u.display_name,u.avatar_url,
+          (SELECT COUNT(*) FROM post_likes l WHERE l.post_id=p.post_id) likes,
+          EXISTS(SELECT 1 FROM post_likes l WHERE l.post_id=p.post_id AND l.user_id=?) liked
+          FROM social_posts p JOIN users u ON u.user_id=p.user_id
+          ORDER BY p.created_at DESC""",
+        (viewer_id,),
+    )
+    return [{
+        "id": item["post_id"],
+        "user": {"id": item["user_id"], "fullName": item["display_name"] or "", "avatarUrl": item["avatar_url"]},
+        "outfitImageUrl": item["outfit_image_url"], "caption": item["caption"],
+        "likes": item["likes"], "comments": 0, "liked": bool(item["liked"]),
+        "shopProductIds": json.loads(item["product_ids"]), "createdAt": item["created_at"],
+    } for item in records]
+
+
+def create_post(user_id: str, data: dict) -> dict:
+    post_id = f"post_{uuid.uuid4().hex[:16]}"
+    with connection() as db:
+        db.execute(
+            "INSERT INTO social_posts(post_id,user_id,outfit_image_url,caption,product_ids,created_at) VALUES(?,?,?,?,?,?)",
+            (post_id, user_id, data["outfit_image_url"], data["caption"],
+             json.dumps(data.get("product_ids", [])), utc_now()),
+        )
+    return next(post for post in social_feed(user_id) if post["id"] == post_id)
+
+
+def toggle_like(user_id: str, post_id: str) -> bool:
+    with connection() as db:
+        exists = db.execute("SELECT 1 FROM post_likes WHERE post_id=? AND user_id=?", (post_id, user_id)).fetchone()
+        if exists:
+            db.execute("DELETE FROM post_likes WHERE post_id=? AND user_id=?", (post_id, user_id))
+            return False
+        db.execute("INSERT INTO post_likes(post_id,user_id) VALUES(?,?)", (post_id, user_id))
+        return True
+
+
+def toggle_follow(follower_id: str, followed_id: str) -> bool:
+    if follower_id == followed_id:
+        raise ValueError("You cannot follow yourself.")
+    with connection() as db:
+        exists = db.execute("SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?", (follower_id, followed_id)).fetchone()
+        if exists:
+            db.execute("DELETE FROM follows WHERE follower_id=? AND followed_id=?", (follower_id, followed_id))
+            return False
+        db.execute("INSERT INTO follows(follower_id,followed_id) VALUES(?,?)", (follower_id, followed_id))
+        return True

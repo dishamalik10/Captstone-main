@@ -1,0 +1,23 @@
+{
+  "start_unix": 1793358780.1801898,
+  "host_architecture": "arm64",
+  "python": "3.12.16 (main, Oct 25 2026, 18:24:37) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "mlx": "0.32.4",
+  "mlx_lm": "0.32.2",
+  "metal_available": true,
+  "system_ram_bytes": 8589934592,
+  "system_memory_free_percent_before": 63,
+  "model_bytes": 868628559,
+  "config_sha256": "54cd3283abe60af1cc6fd57319cda67336df924fdf71ed12ab796da85a3a8f66",
+  "config": "/Users/dishamalik/Downloads/Capstone-main/Capstone_Agents/training/mlx_lora_nocheckpoint_pilot.yaml",
+  "dataset_manifest": "/Users/dishamalik/Downloads/Capstone-main/Capstone_Agents/training/fashion_sft/manifest.json",
+  "command": [
+    "/Users/dishamalik/Downloads/Capstone-main/Capstone_Agents/.venv-mlx/bin/mlx_lm.lora",
+    "--config",
+    "/Users/dishamalik/Downloads/Capstone-main/Capstone_Agents/training/mlx_lora_nocheckpoint_pilot.yaml"
+  ],
+  "end_unix": 1793358870.316409,
+  "elapsed_seconds": 90.13621926307678,
+  "exit_code": 0,
+  "system_memory_free_percent_after": 61
+}

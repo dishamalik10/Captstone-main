@@ -1,0 +1,278 @@
+{
+  "run": "Colab T4, 2026-11-10, run 1",
+  "weights_saved": false,
+  "note": "Weights lost on Colab GPU-limit disconnect before export; metrics below are from the completed nondisjoint run.",
+  "model": {
+    "type": "AURA outfit-compatibility transformer (from scratch)",
+    "parameters": 2308353,
+    "input": "512-d AURA CNN garment embeddings + AURA category"
+  },
+  "nondisjoint": {
+    "training_outfits": 53306,
+    "epochs_run": 28,
+    "best_epoch_by_valid_auc": 25,
+    "early_stopped": true,
+    "test": {
+      "compatibility_auc": 0.865645685,
+      "fitb_accuracy": 0.5225,
+      "compat_examples": 20000,
+      "fitb_questions": 10000
+    },
+    "baselines_test": {
+      "cnn_cosine_similarity": {
+        "compatibility_auc": 0.6571,
+        "fitb_accuracy": 0.4086
+      },
+      "random": {
+        "compatibility_auc": 0.5,
+        "fitb_accuracy": 0.25
+      }
+    },
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.6436,
+        "valid_auc": 0.7772,
+        "valid_fitb": 0.4468,
+        "seconds": 532
+      },
+      {
+        "epoch": 2,
+        "loss": 0.5993,
+        "valid_auc": 0.809,
+        "valid_fitb": 0.4722,
+        "seconds": 509
+      },
+      {
+        "epoch": 3,
+        "loss": 0.5841,
+        "valid_auc": 0.8097,
+        "valid_fitb": 0.474,
+        "seconds": 498
+      },
+      {
+        "epoch": 4,
+        "loss": 0.5747,
+        "valid_auc": 0.8195,
+        "valid_fitb": 0.494,
+        "seconds": 496
+      },
+      {
+        "epoch": 5,
+        "loss": 0.5694,
+        "valid_auc": 0.8297,
+        "valid_fitb": 0.4962,
+        "seconds": 493
+      },
+      {
+        "epoch": 6,
+        "loss": 0.5608,
+        "valid_auc": 0.8297,
+        "valid_fitb": 0.5072,
+        "seconds": 493
+      },
+      {
+        "epoch": 7,
+        "loss": 0.5555,
+        "valid_auc": 0.8364,
+        "valid_fitb": 0.507,
+        "seconds": 501
+      },
+      {
+        "epoch": 8,
+        "loss": 0.5491,
+        "valid_auc": 0.8418,
+        "valid_fitb": 0.5216,
+        "seconds": 541
+      },
+      {
+        "epoch": 9,
+        "loss": 0.5463,
+        "valid_auc": 0.8425,
+        "valid_fitb": 0.512,
+        "seconds": 508
+      },
+      {
+        "epoch": 10,
+        "loss": 0.5403,
+        "valid_auc": 0.8472,
+        "valid_fitb": 0.5216,
+        "seconds": 504
+      },
+      {
+        "epoch": 11,
+        "loss": 0.5359,
+        "valid_auc": 0.8493,
+        "valid_fitb": 0.5178,
+        "seconds": 504
+      },
+      {
+        "epoch": 12,
+        "loss": 0.5295,
+        "valid_auc": 0.8486,
+        "valid_fitb": 0.5128,
+        "seconds": 494
+      },
+      {
+        "epoch": 13,
+        "loss": 0.5265,
+        "valid_auc": 0.8519,
+        "valid_fitb": 0.5214,
+        "seconds": 543
+      },
+      {
+        "epoch": 14,
+        "loss": 0.5213,
+        "valid_auc": 0.8535,
+        "valid_fitb": 0.5216,
+        "seconds": 520
+      },
+      {
+        "epoch": 15,
+        "loss": 0.516,
+        "valid_auc": 0.8535,
+        "valid_fitb": 0.5258,
+        "seconds": 516
+      },
+      {
+        "epoch": 16,
+        "loss": 0.5122,
+        "valid_auc": 0.8588,
+        "valid_fitb": 0.5232,
+        "seconds": 514
+      },
+      {
+        "epoch": 17,
+        "loss": 0.5099,
+        "valid_auc": 0.8569,
+        "valid_fitb": 0.5296,
+        "seconds": 503
+      },
+      {
+        "epoch": 18,
+        "loss": 0.5028,
+        "valid_auc": 0.8588,
+        "valid_fitb": 0.5304,
+        "seconds": 514
+      },
+      {
+        "epoch": 19,
+        "loss": 0.4985,
+        "valid_auc": 0.8588,
+        "valid_fitb": 0.5252,
+        "seconds": 533
+      },
+      {
+        "epoch": 20,
+        "loss": 0.4963,
+        "valid_auc": 0.8656,
+        "valid_fitb": 0.5246,
+        "seconds": 512
+      },
+      {
+        "epoch": 21,
+        "loss": 0.4926,
+        "valid_auc": 0.8642,
+        "valid_fitb": 0.5286,
+        "seconds": 504
+      },
+      {
+        "epoch": 22,
+        "loss": 0.4875,
+        "valid_auc": 0.8643,
+        "valid_fitb": 0.5254,
+        "seconds": 500
+      },
+      {
+        "epoch": 23,
+        "loss": 0.4845,
+        "valid_auc": 0.865,
+        "valid_fitb": 0.5254,
+        "seconds": 490
+      },
+      {
+        "epoch": 24,
+        "loss": 0.4834,
+        "valid_auc": 0.8654,
+        "valid_fitb": 0.5294,
+        "seconds": 540
+      },
+      {
+        "epoch": 25,
+        "loss": 0.4831,
+        "valid_auc": 0.8667,
+        "valid_fitb": 0.526,
+        "seconds": 518
+      },
+      {
+        "epoch": 26,
+        "loss": 0.4787,
+        "valid_auc": 0.8649,
+        "valid_fitb": 0.5206,
+        "seconds": 501
+      },
+      {
+        "epoch": 27,
+        "loss": 0.4787,
+        "valid_auc": 0.8665,
+        "valid_fitb": 0.5242,
+        "seconds": 493
+      },
+      {
+        "epoch": 28,
+        "loss": 0.4759,
+        "valid_auc": 0.8663,
+        "valid_fitb": 0.5272,
+        "seconds": 485
+      }
+    ]
+  },
+  "disjoint": {
+    "training_outfits": 16995,
+    "status": "incomplete (stopped after epoch 6 by GPU limit)",
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.6723,
+        "valid_auc": 0.7394,
+        "valid_fitb": 0.4097,
+        "seconds": 330
+      },
+      {
+        "epoch": 2,
+        "loss": 0.6126,
+        "valid_auc": 0.7871,
+        "valid_fitb": 0.4547,
+        "seconds": 299
+      },
+      {
+        "epoch": 3,
+        "loss": 0.5996,
+        "valid_auc": 0.8007,
+        "valid_fitb": 0.4683,
+        "seconds": 316
+      },
+      {
+        "epoch": 4,
+        "loss": 0.5874,
+        "valid_auc": 0.8101,
+        "valid_fitb": 0.4823,
+        "seconds": 331
+      },
+      {
+        "epoch": 5,
+        "loss": 0.5778,
+        "valid_auc": 0.8083,
+        "valid_fitb": 0.4763,
+        "seconds": 315
+      },
+      {
+        "epoch": 6,
+        "loss": 0.5713,
+        "valid_auc": 0.8177,
+        "valid_fitb": 0.4763,
+        "seconds": 318
+      }
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "model": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+  "runtime": "llama.cpp; same 4096-token context, 4 CPU threads, prompt, and 96-token cap",
+  "metal_offload_supported_by_runtime": true,
+  "runs": [
+    {
+      "mode": "cpu",
+      "gpu_layers": 0,
+      "model_load_seconds": 2.827,
+      "generation_samples": [
+        {
+          "seconds": 4.408,
+          "completion_tokens": 96,
+          "tokens_per_second": 21.779
+        },
+        {
+          "seconds": 3.704,
+          "completion_tokens": 96,
+          "tokens_per_second": 25.919
+        }
+      ],
+      "mean_tokens_per_second": 23.849,
+      "peak_process_rss_bytes": 1797980160,
+      "peak_process_rss_gib": 1.674,
+      "completion_tokens": [
+        96,
+        96
+      ]
+    },
+    {
+      "mode": "metal_all_layers",
+      "gpu_layers": -1,
+      "model_load_seconds": 1.508,
+      "generation_samples": [
+        {
+          "seconds": 2.994,
+          "completion_tokens": 96,
+          "tokens_per_second": 32.065
+        },
+        {
+          "seconds": 2.485,
+          "completion_tokens": 96,
+          "tokens_per_second": 38.636
+        }
+      ],
+      "mean_tokens_per_second": 35.35,
+      "peak_process_rss_bytes": 1190215680,
+      "peak_process_rss_gib": 1.108,
+      "completion_tokens": [
+        96,
+        96
+      ]
+    }
+  ]
+}

@@ -1,0 +1,577 @@
+{
+  "dataset_version": "1.0",
+  "dataset_provenance": "Hand-authored synthetic software evaluation fixtures. Not user data, licensed training data, expert ratings, or training examples.",
+  "cases": [
+    {
+      "id": "small-casual",
+      "wardrobe_items": 3,
+      "occasion": "casual",
+      "expected_outfit": true,
+      "recommendations": 1,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 3,
+      "item_id_count": 3,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 1,
+      "comparison_explanation_chars": 92,
+      "component_score_ranges": {
+        "color": [
+          90.0,
+          90.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          87,
+          87
+        ],
+        "weather": [
+          85.0,
+          85.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": null,
+      "occasion_tag_coverage": "0/1",
+      "occasion_rule_signal_range": [
+        87,
+        87
+      ],
+      "color_ranker_signal_range": [
+        90.0,
+        90.0
+      ],
+      "palette_type_proxy": [
+        "single_hue_family"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "large-casual",
+      "wardrobe_items": 7,
+      "occasion": "casual",
+      "expected_outfit": true,
+      "recommendations": 5,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 16,
+      "item_id_count": 16,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 5,
+      "comparison_explanation_chars": 180,
+      "component_score_ranges": {
+        "color": [
+          90.0,
+          92.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          72,
+          87
+        ],
+        "weather": [
+          85.0,
+          85.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": 0.75,
+      "occasion_tag_coverage": "0/5",
+      "occasion_rule_signal_range": [
+        72,
+        87
+      ],
+      "color_ranker_signal_range": [
+        90.0,
+        92.0
+      ],
+      "palette_type_proxy": [
+        "single_hue_family",
+        "single_hue_family",
+        "neutral_palette",
+        "single_hue_family",
+        "single_hue_family"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "limited-colors",
+      "wardrobe_items": 3,
+      "occasion": "casual",
+      "expected_outfit": true,
+      "recommendations": 1,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 3,
+      "item_id_count": 3,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 1,
+      "comparison_explanation_chars": 92,
+      "component_score_ranges": {
+        "color": [
+          92.0,
+          92.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          72,
+          72
+        ],
+        "weather": [
+          85.0,
+          85.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": null,
+      "occasion_tag_coverage": "0/1",
+      "occasion_rule_signal_range": [
+        72,
+        72
+      ],
+      "color_ranker_signal_range": [
+        92.0,
+        92.0
+      ],
+      "palette_type_proxy": [
+        "neutral_palette"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "formal",
+      "wardrobe_items": 4,
+      "occasion": "meeting",
+      "expected_outfit": true,
+      "recommendations": 2,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 7,
+      "item_id_count": 7,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 2,
+      "comparison_explanation_chars": 136,
+      "component_score_ranges": {
+        "color": [
+          92.0,
+          92.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          100.0,
+          100.0
+        ],
+        "weather": [
+          85.0,
+          85.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": 0.25,
+      "occasion_tag_coverage": "2/2",
+      "occasion_rule_signal_range": [
+        100.0,
+        100.0
+      ],
+      "color_ranker_signal_range": [
+        92.0,
+        92.0
+      ],
+      "palette_type_proxy": [
+        "neutral_palette",
+        "neutral_palette"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "party",
+      "wardrobe_items": 3,
+      "occasion": "party",
+      "expected_outfit": true,
+      "recommendations": 2,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 5,
+      "item_id_count": 5,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 2,
+      "comparison_explanation_chars": 136,
+      "component_score_ranges": {
+        "color": [
+          90.0,
+          90.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          98,
+          98
+        ],
+        "weather": [
+          85.0,
+          85.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": 0.3333,
+      "occasion_tag_coverage": "2/2",
+      "occasion_rule_signal_range": [
+        98,
+        98
+      ],
+      "color_ranker_signal_range": [
+        90.0,
+        90.0
+      ],
+      "palette_type_proxy": [
+        "single_hue_family",
+        "single_hue_family"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "winter-layering",
+      "wardrobe_items": 4,
+      "occasion": "casual",
+      "expected_outfit": true,
+      "recommendations": 2,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 7,
+      "item_id_count": 7,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 2,
+      "comparison_explanation_chars": 136,
+      "component_score_ranges": {
+        "color": [
+          92.0,
+          92.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          72,
+          72
+        ],
+        "weather": [
+          100.0,
+          100.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": 0.25,
+      "occasion_tag_coverage": "0/2",
+      "occasion_rule_signal_range": [
+        72,
+        72
+      ],
+      "color_ranker_signal_range": [
+        92.0,
+        92.0
+      ],
+      "palette_type_proxy": [
+        "neutral_palette",
+        "neutral_palette"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "summer-seasonal",
+      "wardrobe_items": 2,
+      "occasion": "casual",
+      "expected_outfit": true,
+      "recommendations": 1,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": 1.0,
+      "owned_item_id_count": 2,
+      "item_id_count": 2,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 1,
+      "comparison_explanation_chars": 92,
+      "component_score_ranges": {
+        "color": [
+          90.0,
+          90.0
+        ],
+        "pattern": [
+          50.0,
+          50.0
+        ],
+        "silhouette": [
+          50.0,
+          50.0
+        ],
+        "fabric_weather": [
+          50.0,
+          50.0
+        ],
+        "occasion": [
+          72,
+          72
+        ],
+        "weather": [
+          99.0,
+          99.0
+        ]
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": "Scratch model unavailable; deterministic explanation retained."
+      },
+      "top5_pairwise_diversity_jaccard_distance": null,
+      "occasion_tag_coverage": "0/1",
+      "occasion_rule_signal_range": [
+        72,
+        72
+      ],
+      "color_ranker_signal_range": [
+        90.0,
+        90.0
+      ],
+      "palette_type_proxy": [
+        "single_hue_family"
+      ],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": 14.0736,
+      "feedback_dislike_signal_delta": -22.1623,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    },
+    {
+      "id": "incomplete-top-only",
+      "wardrobe_items": 1,
+      "occasion": "meeting",
+      "expected_outfit": false,
+      "recommendations": 0,
+      "expectation_met": true,
+      "wardrobe_compliance": true,
+      "complete_outfits": true,
+      "item_id_accuracy": null,
+      "owned_item_id_count": 0,
+      "item_id_count": 0,
+      "duplicate_item_id_count": 0,
+      "json_schema_valid": true,
+      "nonempty_explanations": 0,
+      "comparison_explanation_chars": 92,
+      "component_score_ranges": {
+        "color": null,
+        "pattern": null,
+        "silhouette": null,
+        "fabric_weather": null,
+        "occasion": null,
+        "weather": null
+      },
+      "scratch_explanation": {
+        "attempted": false,
+        "valid_structured_response": false,
+        "item_ids_preserved": false,
+        "unsupported_claim": null,
+        "unlisted_garment": null,
+        "explanation": null,
+        "error": null
+      },
+      "top5_pairwise_diversity_jaccard_distance": null,
+      "occasion_tag_coverage": "not_applicable",
+      "occasion_rule_signal_range": null,
+      "color_ranker_signal_range": null,
+      "palette_type_proxy": [],
+      "palette_proxy_unclassified_count": 0,
+      "feedback_like_signal_delta": null,
+      "feedback_dislike_signal_delta": null,
+      "limitations": "Synthetic fixture; palette and occasion checks are metadata/rule proxies, not human style judgments."
+    }
+  ],
+  "summary": {
+    "case_expectations_met": 8,
+    "case_count": 8,
+    "wardrobe_compliance_rate": 1.0,
+    "item_id_accuracy": 1.0,
+    "duplicate_item_id_count": 0,
+    "json_schema_valid_rate": 1.0,
+    "nonempty_explanation_rate": 1.0,
+    "cases_with_clarification_needed": 1,
+    "clarification_correct_rate": 1.0,
+    "complete_outfit_rate": 1.0,
+    "mean_pairwise_diversity": 0.395825,
+    "feedback_response_cases": 7,
+    "feedback_signal_increased": 7,
+    "feedback_dislike_signal_decreased": 7,
+    "palette_proxy": "Per-outfit color-family labels from recorded color names; descriptive coverage only, not a harmony quality score or human judgment.",
+    "occasion_proxy": "Explicit occasion-tag coverage plus the ranker's occasion component-signal range; neither is a human suitability judgment or calibrated quality score."
+  },
+  "method": "Local deterministic ranking service with synthetic, hand-authored wardrobe fixtures; no LLM judged these outcomes.",
+  "scratch_fashion_lm": {
+    "engine": "AURA scratch fashion GPT",
+    "weights_present": false,
+    "loaded": false,
+    "ready": false,
+    "architecture": "GPT-style decoder, 4 layers, 256 hidden, 4 heads, vocab 8000",
+    "role": "explanation only; deterministic ranker selects all outfit items",
+    "last_error": null
+  },
+  "scratch_vs_rule_explanation_comparison": {
+    "scenario_count": 8,
+    "generations_attempted": 0,
+    "valid_structured_rate": null,
+    "item_ids_preserved_rate": null,
+    "unsupported_claim_free_rate": null,
+    "unlisted_garment_free_rate": null,
+    "human_fashion_quality_rated": false,
+    "interpretation": "This compares model-written explanations with the deterministic explanation for the same rule-selected outfit. It does not let the LM select or rank outfits, and automatic grounding checks are not a fashion-quality score."
+  }
+}

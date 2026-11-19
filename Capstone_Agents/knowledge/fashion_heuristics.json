@@ -1,0 +1,372 @@
+{
+  "title": "WearBefore fashion reference and stylist heuristics",
+  "purpose": "Prompt-time local reference only. Sourced paraphrases and original heuristics are separated by provenance on every entry. This file is not model training data.",
+  "original_heuristic_license": "CC BY 4.0; original WearBefore capstone guidance.",
+  "sources": [
+    {
+      "id": "gray2014_color_coordination",
+      "title": "The Science of Style: In Fashion, Colors Should Match Only Moderately",
+      "authors": "Kurt Gray, Peter Schmitt, Nina Strohminger, Karim S. Kassam",
+      "year": 2014,
+      "url": "https://doi.org/10.1371/journal.pone.0102772",
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope_note": "A color-coordination experiment using a limited set of illustrated outfit palettes and participants recruited online. It does not establish universal styling rules across cultures, occasions, bodies, or current trends."
+    },
+    {
+      "id": "rmit2023_colour_theory",
+      "title": "Colour Theory: Understanding and Working with Colour",
+      "authors": "Lisa Cianci, RMIT University",
+      "year": 2023,
+      "url": "https://rmit.pressbooks.pub/colourtheory1/",
+      "license": "CC BY-NC 4.0 (except where otherwise noted)",
+      "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "scope_note": "Noncommercial reuse only. This is a general art and design color resource, not evidence that one palette is objectively best in clothing."
+    },
+    {
+      "id": "apple2023_apparel_production",
+      "title": "Introduction to Apparel Production Workbook",
+      "authors": "Laurie M. Apple, University of Arkansas",
+      "year": 2023,
+      "url": "https://open.umn.edu/opentextbooks/textbooks/introduction-to-apparel-production-workbook",
+      "license": "CC BY",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope_note": "Used for careful handling of garment material and construction attributes; it is not a source of outfit-quality ratings."
+    },
+    {
+      "id": "reddybest2020_dress_diversity",
+      "title": "Dress, Appearance, and Diversity in U.S. Society",
+      "authors": "Kelly L. Reddy-Best, Abbey K. Elder, Lesya Hassall, Iowa State University",
+      "year": 2020,
+      "url": "https://open.umn.edu/opentextbooks/textbooks/dress-appearance-and-diversity-in-us-society",
+      "license": "CC BY",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope_note": "Used for the social and cultural context of dress. Do not turn a population-level discussion into assumptions about an individual user's identity or event requirements."
+    },
+    {
+      "id": "fashionpedia_ontology_ccby4",
+      "title": "Fashionpedia: Ontology, Segmentation, and an Attribute Localization Dataset",
+      "authors": "Menglin Jia, Mengyun Shi, Mikhail Sirotenko, Yin Cui, Claire Cardie, Bharath Hariharan, Hartwig Adam, Serge Belongie",
+      "year": 2020,
+      "url": "https://fashionpedia.github.io/home/data_license.html",
+      "license": "CC BY 4.0 (ontology and annotations only; images have separate third-party terms)",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope_note": "Used only as a cited source for the structure of garment categories, parts, and visual-attribute fields. No Fashionpedia images or per-image annotations are included. The ontology itself has an explicit CC BY 4.0 grant; image rights are separate."
+    },
+    {
+      "id": "wearbefore_original_styling_rules",
+      "title": "WearBefore original styling heuristics",
+      "authors": "WearBefore project",
+      "year": 2026,
+      "url": "training/FASHION_DATASET_LICENSE_AUDIT.md",
+      "license": "CC BY 4.0; original WearBefore material",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope_note": "Original non-empirical heuristics. They are not expert-reviewed standards or universal fashion laws."
+    }
+  ],
+  "entries": [
+    {
+      "id": "color_coordination_evidence",
+      "provenance": "sourced_paraphrase",
+      "source_id": "gray2014_color_coordination",
+      "topics": [
+        "color",
+        "coordination",
+        "harmony",
+        "matching",
+        "contrast",
+        "clashing"
+      ],
+      "guidance": "One published experiment found the highest fashionability ratings at moderate rather than extreme color coordination in its tested outfit palettes. Treat this as limited evidence for avoiding both automatic same-color matching and arbitrary high contrast; it is not a universal rule."
+    },
+    {
+      "id": "color_dimensions",
+      "provenance": "sourced_paraphrase",
+      "source_id": "rmit2023_colour_theory",
+      "topics": [
+        "color",
+        "colour",
+        "hue",
+        "value",
+        "lightness",
+        "chroma",
+        "saturation"
+      ],
+      "guidance": "Describe colors carefully by hue family, lightness/value, and saturation/chroma when the item data supports it. A detected color name is approximate; do not infer the garment's exact shade from a broad classifier label."
+    },
+    {
+      "id": "color_wheel_relations",
+      "provenance": "sourced_paraphrase",
+      "source_id": "rmit2023_colour_theory",
+      "topics": [
+        "color",
+        "colour",
+        "complementary",
+        "analogous",
+        "wheel",
+        "palette"
+      ],
+      "guidance": "Color-wheel relationships such as neighboring hues and opposing hues are useful ways to describe palette relationships. Use them as vocabulary for a possible harmony, not as proof that a combination will suit every wearer or setting."
+    },
+    {
+      "id": "fabric_evidence",
+      "provenance": "sourced_paraphrase",
+      "source_id": "apple2023_apparel_production",
+      "topics": [
+        "fabric",
+        "textile",
+        "material",
+        "fiber",
+        "construction",
+        "texture"
+      ],
+      "guidance": "Fabric, fiber, and construction are separate garment attributes. Only make warmth, drape, breathability, care, or texture claims when the wardrobe record or user supplies that information."
+    },
+    {
+      "id": "dress_context",
+      "provenance": "sourced_paraphrase",
+      "source_id": "reddybest2020_dress_diversity",
+      "topics": [
+        "culture",
+        "identity",
+        "ethnic",
+        "traditional",
+        "religion",
+        "occasion",
+        "dress code"
+      ],
+      "guidance": "Dress communicates identity and is interpreted in social and cultural contexts. Ask the user about dress codes or cultural preferences when relevant; do not infer them from their name, body, location, or wardrobe."
+    },
+    {
+      "id": "neutral_anchors",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "color",
+        "colour",
+        "neutral",
+        "black",
+        "white",
+        "beige",
+        "navy",
+        "grey"
+      ],
+      "guidance": "A neutral-heavy palette can act as a quiet base. If the user wants more emphasis, consider one owned accent item; a neutral outfit is not automatically better than a colorful one."
+    },
+    {
+      "id": "color_contrast_choice",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "color",
+        "colour",
+        "contrast",
+        "accent",
+        "complementary",
+        "analogous"
+      ],
+      "guidance": "For lower contrast, repeat a hue family or combine neighboring families. For a deliberate focal contrast, use one owned accent against quieter pieces. Name this as a styling option, not an objective color score."
+    },
+    {
+      "id": "poor_color_combinations",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "color",
+        "colour",
+        "clash",
+        "poor",
+        "conflict",
+        "balance"
+      ],
+      "guidance": "Flag a palette as potentially busy when several unrelated saturated color families compete for attention. Explain the observed colors and offer a lower-contrast alternative from owned items; do not call a combination universally bad."
+    },
+    {
+      "id": "proportion_volume",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "proportion",
+        "silhouette",
+        "volume",
+        "shape",
+        "fit",
+        "balance"
+      ],
+      "guidance": "If recorded fit or silhouette details are available, compare garment volume and length. A roomy piece can be balanced by a simpler-fitting piece, but this is optional styling guidance; never infer body shape or prescribe concealment."
+    },
+    {
+      "id": "pattern_scale",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "pattern",
+        "print",
+        "stripe",
+        "plaid",
+        "scale",
+        "mixing"
+      ],
+      "guidance": "When pattern data is known, one focal print with quieter pieces is a simple starting point. Mixing prints can work when their scale or colors relate, but the database currently may not contain enough pattern detail to judge this."
+    },
+    {
+      "id": "fabric_texture_mix",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "fabric",
+        "texture",
+        "material",
+        "knit",
+        "denim",
+        "leather"
+      ],
+      "guidance": "A matte/soft surface can be contrasted with a smoother or more structured surface for visual depth. Only name specific textures or materials that are recorded; otherwise describe this as an idea requiring a garment check."
+    },
+    {
+      "id": "layering_order",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "layer",
+        "layering",
+        "outerwear",
+        "temperature",
+        "weather"
+      ],
+      "guidance": "For practical layering, start with the lightest layer and add warmer or more weather-protective layers outside it. Use only available owned pieces and avoid warmth or rain-protection claims unless material details support them."
+    },
+    {
+      "id": "minimalist_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "minimalist",
+        "minimal",
+        "simple",
+        "clean lines",
+        "aesthetic"
+      ],
+      "guidance": "For a minimalist look, try a restrained palette, clean garment lines, and few focal points. Use the user's own preference as the definition; minimal does not mean only black, white, or expensive basics."
+    },
+    {
+      "id": "old_money_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "old money",
+        "classic",
+        "preppy",
+        "tailored",
+        "heritage"
+      ],
+      "guidance": "If the user asks for an old-money-inspired look, treat it as an aesthetic label: classic shapes, restrained details, and coordinated pieces when present. Do not infer wealth, class, brand, garment quality, or social status."
+    },
+    {
+      "id": "streetwear_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "streetwear",
+        "urban",
+        "sneaker",
+        "graphic",
+        "oversized"
+      ],
+      "guidance": "For a streetwear direction, consider relaxed proportions, a graphic or color focal point, and compatible footwear only when those attributes are recorded. Avoid claiming trend status without current verified evidence."
+    },
+    {
+      "id": "casual_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "casual",
+        "everyday",
+        "weekend",
+        "college"
+      ],
+      "guidance": "For casual settings, prioritize the user's stated comfort and practical context. Keep the outfit relaxed without assuming that sneakers, denim, or any single item is required."
+    },
+    {
+      "id": "formal_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "formal",
+        "ceremony",
+        "wedding",
+        "interview",
+        "dress code"
+      ],
+      "guidance": "For formal occasions, use the invitation, venue, and user's stated dress code as the authority. If no formal pieces or suitable footwear are available, say what is missing instead of upgrading the outfit in prose."
+    },
+    {
+      "id": "smart_casual_aesthetic",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "smart casual",
+        "office",
+        "meeting",
+        "work"
+      ],
+      "guidance": "For smart casual, combine a polished element with otherwise relaxed pieces if the wardrobe supports it. Ask for workplace norms when the setting is ambiguous; do not claim an item is tailored unless fit or construction says so."
+    },
+    {
+      "id": "occasion_matching",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "occasion",
+        "party",
+        "date",
+        "travel",
+        "festival",
+        "event"
+      ],
+      "guidance": "Match the outfit to the user's activity, venue, and stated formality. A party, travel day, and ceremony can have different practical constraints even when the same garments appear in all three."
+    },
+    {
+      "id": "seasonal_dressing",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "season",
+        "summer",
+        "winter",
+        "spring",
+        "autumn",
+        "rain",
+        "hot",
+        "cold"
+      ],
+      "guidance": "Use supplied weather plus recorded season and material attributes to compare options. Seasons differ by region, and a color or broad garment category alone does not establish insulation or breathability."
+    },
+    {
+      "id": "avoid_repetition",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "repeat",
+        "repetitive",
+        "variety",
+        "alternative",
+        "diversity"
+      ],
+      "guidance": "Offer alternatives that change more than one minor detail when the wardrobe allows it. A different item combination is a structural difference; do not claim the user prefers novelty unless feedback supports that."
+    },
+    {
+      "id": "evidence_confidence",
+      "provenance": "original_heuristic",
+      "source_id": null,
+      "topics": [
+        "confidence",
+        "uncertain",
+        "limitations",
+        "evidence",
+        "explain"
+      ],
+      "guidance": "State confidence in terms of available evidence, not model certainty: note missing fabric, fit, pattern, weather, or occasion tags. The ranking is an uncalibrated heuristic signal, not a probability or expert consensus."
+    }
+  ]
+}

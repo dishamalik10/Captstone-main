@@ -1,0 +1,2 @@
+# Isolated Apple Silicon training environment. Tested on native Python 3.12/macOS 26.
+mlx-lm[train]==0.32.2

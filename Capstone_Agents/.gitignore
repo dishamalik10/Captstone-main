@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.venv/
+.venv-mlx/
+.pip-cache-mlx/
+.pytest_cache/
+aura.db
+uploads/
+model_artifacts/*.keras
+model_artifacts/mlx_base/
+model_artifacts/mlx_cache/
+training/checkpoints/
+!model_artifacts/fashion_cnn_final.keras
+!model_artifacts/shift15m_compatibility_safe.keras

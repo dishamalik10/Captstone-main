@@ -1,0 +1,114 @@
+{
+  "evaluation_version": "1.0",
+  "cnn": {
+    "architecture": "EfficientNetV2B0",
+    "training_images": 105100,
+    "validation_product_type_accuracy": 0.80065,
+    "independent_test_metrics": null,
+    "status": "validation-only; independent held-out test evaluation still required"
+  },
+  "dataset": {
+    "users": 6,
+    "feedback_events": 9,
+    "positive_feedback_events": 7,
+    "eligible_wardrobes": 2
+  },
+  "recommendation_system": {
+    "per_user": [
+      {
+        "user_id": "mobile-smoke-user",
+        "wardrobe_items": 0,
+        "candidates_generated": 0,
+        "critic_acceptance_rate": null,
+        "owned_item_safety_rate": null,
+        "complete_outfit_rate": null,
+        "top5_pairwise_diversity": null,
+        "mean_baseline_score": null,
+        "mean_agentic_score": null,
+        "mean_ranking_latency_ms": 0.01
+      },
+      {
+        "user_id": "user-test",
+        "wardrobe_items": 6,
+        "candidates_generated": 32,
+        "critic_acceptance_rate": 1.0,
+        "owned_item_safety_rate": 1.0,
+        "complete_outfit_rate": 1.0,
+        "top5_pairwise_diversity": 0.5642,
+        "mean_baseline_score": 81.7,
+        "mean_agentic_score": 77.92,
+        "mean_ranking_latency_ms": 26.88
+      },
+      {
+        "user_id": "user_27d1c9a01c6c4a69",
+        "wardrobe_items": 3,
+        "candidates_generated": 8,
+        "critic_acceptance_rate": 1.0,
+        "owned_item_safety_rate": 1.0,
+        "complete_outfit_rate": 1.0,
+        "top5_pairwise_diversity": 0.5714,
+        "mean_baseline_score": 81.09,
+        "mean_agentic_score": 78.15,
+        "mean_ranking_latency_ms": 7.31
+      },
+      {
+        "user_id": "user_3f99f1ffa46b4cb6",
+        "wardrobe_items": 0,
+        "candidates_generated": 0,
+        "critic_acceptance_rate": null,
+        "owned_item_safety_rate": null,
+        "complete_outfit_rate": null,
+        "top5_pairwise_diversity": null,
+        "mean_baseline_score": null,
+        "mean_agentic_score": null,
+        "mean_ranking_latency_ms": 0.01
+      },
+      {
+        "user_id": "user_4636a5a8aa934052",
+        "wardrobe_items": 0,
+        "candidates_generated": 0,
+        "critic_acceptance_rate": null,
+        "owned_item_safety_rate": null,
+        "complete_outfit_rate": null,
+        "top5_pairwise_diversity": null,
+        "mean_baseline_score": null,
+        "mean_agentic_score": null,
+        "mean_ranking_latency_ms": 0.01
+      },
+      {
+        "user_id": "user_e00c763cfe414d9e",
+        "wardrobe_items": 0,
+        "candidates_generated": 0,
+        "critic_acceptance_rate": null,
+        "owned_item_safety_rate": null,
+        "complete_outfit_rate": null,
+        "top5_pairwise_diversity": null,
+        "mean_baseline_score": null,
+        "mean_agentic_score": null,
+        "mean_ranking_latency_ms": 0.01
+      }
+    ],
+    "mean_owned_item_safety_rate": 1.0,
+    "mean_complete_outfit_rate": 1.0,
+    "mean_top5_pairwise_diversity": 0.5678
+  },
+  "learning_evaluation": {
+    "ndcg_at_5": null,
+    "precision_at_3": null,
+    "reason": "At least 500 recommendation impressions with positive and negative feedback are recommended; only explicit feedback is currently logged."
+  },
+  "trend_grounding": {
+    "region": "India",
+    "generatedAt": "2026-07-20T20:16:21.588448+00:00",
+    "fresh": false,
+    "trends": [],
+    "sources": [],
+    "note": "Live trend grounding is temporarily unavailable; personal style and wardrobe compatibility remain active."
+  },
+  "limitations": [
+    "The CNN metadata contains no independent test-set metrics.",
+    "Nine feedback events are insufficient for reliable ranking evaluation.",
+    "No impression table currently records every outfit shown and its rank position.",
+    "Offline scores do not replace a user study or A/B test."
+  ]
+}

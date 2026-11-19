@@ -1,0 +1,2208 @@
+[
+  {
+    "id": "stylist_train_01",
+    "split": "train",
+    "occasion": "smart-casual office meeting",
+    "wardrobe": [
+      {
+        "item_id": "m01_navy_shirt",
+        "category": "Top",
+        "name": "button-up shirt",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "office",
+          "meeting"
+        ]
+      },
+      {
+        "item_id": "m01_cream_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "office"
+        ]
+      },
+      {
+        "item_id": "m01_black_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "office",
+          "meeting"
+        ]
+      },
+      {
+        "item_id": "m01_red_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "red",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m01_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m01_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m01_navy_shirt",
+      "m01_cream_trousers",
+      "m01_black_loafers"
+    ],
+    "b": [
+      "m01_red_tee",
+      "m01_blue_jeans",
+      "m01_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A is the stronger starting point for the stated meeting: navy and cream make a restrained contrast, and the recorded tailored shirt with straight trousers gives a more controlled proportion. Its pieces carry office or meeting tags. Option B has a more relaxed color and fit direction and may suit a casual workday better. Exact shades and the employer's dress code are unknown, so this is a context-based recommendation, not a universal rule."
+  },
+  {
+    "id": "stylist_train_02",
+    "split": "train",
+    "occasion": "casual campus day",
+    "wardrobe": [
+      {
+        "item_id": "m02_olive_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "olive",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual",
+          "college"
+        ]
+      },
+      {
+        "item_id": "m02_black_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m02_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual",
+          "college"
+        ]
+      },
+      {
+        "item_id": "m02_lilac_top",
+        "category": "Top",
+        "name": "long-sleeve top",
+        "color": "lilac",
+        "pattern": "stripe",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m02_blue_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "wide-leg",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m02_black_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m02_olive_tee",
+      "m02_black_jeans",
+      "m02_white_sneakers"
+    ],
+    "b": [
+      "m02_lilac_top",
+      "m02_blue_trousers",
+      "m02_black_boots"
+    ],
+    "choose": "a",
+    "answer": "Option A keeps the palette to olive, black, and white, with the relaxed top balanced by straight-leg jeans. That makes it an easy casual direction for campus from the tags provided. Option B can also work; its striped lilac top adds a focal pattern and the wide-leg trouser creates more volume below. Choose B if you want a more expressive look. Pattern scale and exact shades are not recorded, so neither palette is inherently better."
+  },
+  {
+    "id": "stylist_train_03",
+    "split": "train",
+    "occasion": "cocktail party",
+    "wardrobe": [
+      {
+        "item_id": "m03_emerald_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "emerald",
+        "pattern": "solid",
+        "fit": "regular",
+        "fabric": "satin",
+        "occasion_tags": [
+          "party",
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m03_black_heels",
+        "category": "Footwear",
+        "name": "heels",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party",
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m03_floral_top",
+        "category": "Top",
+        "name": "blouse",
+        "color": "pink",
+        "pattern": "floral",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m03_black_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m03_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      }
+    ],
+    "a": [
+      "m03_emerald_dress",
+      "m03_black_heels"
+    ],
+    "b": [
+      "m03_floral_top",
+      "m03_black_skirt",
+      "m03_black_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A has one clear color focus: emerald with black footwear. The single-color dress also avoids competing patterns, while the recorded regular fit gives no basis for a stronger silhouette claim. Both options are tagged for parties; A is the simpler cocktail direction, while B feels more playful because of the floral blouse. The invitation's dress code and the dress's actual length or coverage are not recorded, so check those before deciding."
+  },
+  {
+    "id": "stylist_train_04",
+    "split": "train",
+    "occasion": "warm-weather weekend outing",
+    "wardrobe": [
+      {
+        "item_id": "m04_white_linen_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "fabric": "linen",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m04_olive_shorts",
+        "category": "Bottom",
+        "name": "shorts",
+        "color": "olive",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m04_tan_sandals",
+        "category": "Footwear",
+        "name": "sandals",
+        "color": "tan",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m04_navy_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m04_cream_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Spring",
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m04_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m04_white_linen_shirt",
+      "m04_olive_shorts",
+      "m04_tan_sandals"
+    ],
+    "b": [
+      "m04_navy_tee",
+      "m04_cream_trousers",
+      "m04_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A is more aligned with a warm-weather weekend: all three items are tagged Summer, and the white, olive, and tan palette stays low contrast. The relaxed shirt over straight shorts varies the recorded fit without requiring a body-shape assumption. Option B is also casual and a little more covered by category, but the records do not establish temperature comfort. Linen is recorded for A's shirt; that alone does not prove breathability or care needs."
+  },
+  {
+    "id": "stylist_train_05",
+    "split": "train",
+    "occasion": "job interview with a formal dress code",
+    "wardrobe": [
+      {
+        "item_id": "m05_white_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "m05_charcoal_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "charcoal",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "m05_black_shoes",
+        "category": "Footwear",
+        "name": "dress shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "m05_graphic_tee",
+        "category": "Top",
+        "name": "graphic T-shirt",
+        "color": "orange",
+        "pattern": "graphic",
+        "fit": "oversized",
+        "occasion_tags": [
+          "casual",
+          "streetwear"
+        ]
+      },
+      {
+        "item_id": "m05_denim",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m05_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m05_white_shirt",
+      "m05_charcoal_trousers",
+      "m05_black_shoes"
+    ],
+    "b": [
+      "m05_graphic_tee",
+      "m05_denim",
+      "m05_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A is the clear fit for the stated formal interview because each listed piece has a formal or office tag. White, charcoal, and black form a restrained palette; the tailored shirt and straight trousers give a more structured line than Option B's oversized top and relaxed jeans. Option B's brighter graphic and casual tags conflict with the stated dress code. Confirm whether the employer expects a jacket or a different local convention; none is present in this wardrobe."
+  },
+  {
+    "id": "stylist_train_06",
+    "split": "train",
+    "occasion": "creative-office smart casual day",
+    "wardrobe": [
+      {
+        "item_id": "m06_stripe_shirt",
+        "category": "Top",
+        "name": "striped shirt",
+        "color": "blue",
+        "pattern": "stripe",
+        "fit": "regular",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m06_tan_chinos",
+        "category": "Bottom",
+        "name": "chinos",
+        "color": "tan",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m06_brown_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m06_plaid_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "grey",
+        "pattern": "plaid",
+        "fit": "wide-leg",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m06_black_top",
+        "category": "Top",
+        "name": "top",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "fitted",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m06_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      }
+    ],
+    "a": [
+      "m06_stripe_shirt",
+      "m06_tan_chinos",
+      "m06_brown_loafers"
+    ],
+    "b": [
+      "m06_black_top",
+      "m06_plaid_trousers",
+      "m06_black_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A is a balanced starting point: the striped shirt is the single focal pattern, while the solid tan chinos and brown loafers keep the remaining pieces visually quieter. Its regular top and straight bottom are less volume-heavy than Option B's fitted top with wide-leg trousers, though either proportion can be intentional. Both have smart-casual tags; choose B if you want the trousers to lead the look. Pattern scale and workplace norms are not recorded."
+  },
+  {
+    "id": "stylist_train_07",
+    "split": "train",
+    "occasion": "streetwear-inspired evening with friends",
+    "wardrobe": [
+      {
+        "item_id": "m07_red_graphic",
+        "category": "Top",
+        "name": "graphic sweatshirt",
+        "color": "red",
+        "pattern": "graphic",
+        "fit": "oversized",
+        "occasion_tags": [
+          "streetwear",
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m07_black_cargos",
+        "category": "Bottom",
+        "name": "cargo trousers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "streetwear",
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m07_black_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "streetwear"
+        ]
+      },
+      {
+        "item_id": "m07_cream_knit",
+        "category": "Top",
+        "name": "knit top",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m07_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m07_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m07_red_graphic",
+      "m07_black_cargos",
+      "m07_black_sneakers"
+    ],
+    "b": [
+      "m07_cream_knit",
+      "m07_blue_jeans",
+      "m07_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A better matches the requested streetwear direction because its recorded tags support that aesthetic and its red graphic top creates one focal point against black bottoms and shoes. The oversized top and relaxed trousers share volume, so the outline may feel intentionally roomy; if that is not your preference, Option B has a straighter, quieter silhouette. Exact graphic placement and comfort are unknown, so treat the proportion note as something to try on."
+  },
+  {
+    "id": "stylist_train_08",
+    "split": "train",
+    "occasion": "minimalist dinner at a small restaurant",
+    "wardrobe": [
+      {
+        "item_id": "m08_cream_top",
+        "category": "Top",
+        "name": "top",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual",
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m08_black_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual",
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m08_black_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m08_green_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "green",
+        "pattern": "floral",
+        "fit": "regular",
+        "occasion_tags": [
+          "party",
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m08_navy_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m08_brown_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m08_cream_top",
+      "m08_black_trousers",
+      "m08_black_loafers"
+    ],
+    "b": [
+      "m08_green_blouse",
+      "m08_navy_skirt",
+      "m08_brown_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A is closer to the requested minimalist direction: it uses two quiet solid colors and has smart-casual tags for the dinner setting. The regular top with straight trousers keeps the lines simple based on recorded fits. Option B introduces a floral focal point and may feel more expressive. 'Minimalist' is a preference label here, not a quality measure; if the restaurant has a specific dress code, follow that instead."
+  },
+  {
+    "id": "stylist_train_09",
+    "split": "train",
+    "occasion": "autumn evening walk",
+    "wardrobe": [
+      {
+        "item_id": "m09_white_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m09_denim_jacket",
+        "category": "Outerwear",
+        "name": "jacket",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "fabric": "denim",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m09_black_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m09_black_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m09_yellow_sweater",
+        "category": "Top",
+        "name": "sweater",
+        "color": "yellow",
+        "pattern": "solid",
+        "fit": "oversized",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m09_blue_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m09_brown_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Autumn"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m09_white_shirt",
+      "m09_denim_jacket",
+      "m09_black_jeans",
+      "m09_black_sneakers"
+    ],
+    "b": [
+      "m09_yellow_sweater",
+      "m09_blue_trousers",
+      "m09_brown_boots"
+    ],
+    "choose": "a",
+    "answer": "Option A offers a practical layering order from the recorded categories: shirt, then jacket, with jeans and sneakers. White, blue, and black make a connected palette, and the relaxed outer layer sits over a regular shirt. Option B is simpler and uses fewer pieces, with yellow as a focal color. The records say Autumn but do not state temperature, rain, insulation, or the jacket's weather protection; check conditions before relying on either outfit for warmth."
+  },
+  {
+    "id": "stylist_train_10",
+    "split": "train",
+    "occasion": "old-money-inspired lunch",
+    "wardrobe": [
+      {
+        "item_id": "m10_blue_oxford",
+        "category": "Top",
+        "name": "button-up shirt",
+        "color": "blue",
+        "pattern": "stripe",
+        "fit": "tailored",
+        "style_tags": [
+          "old money",
+          "smart casual"
+        ],
+        "occasion_tags": [
+          "lunch",
+          "office"
+        ]
+      },
+      {
+        "item_id": "m10_beige_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "beige",
+        "pattern": "solid",
+        "fit": "straight",
+        "style_tags": [
+          "old money",
+          "smart casual"
+        ],
+        "occasion_tags": [
+          "lunch",
+          "office"
+        ]
+      },
+      {
+        "item_id": "m10_brown_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "style_tags": [
+          "old money",
+          "smart casual"
+        ],
+        "occasion_tags": [
+          "lunch"
+        ]
+      },
+      {
+        "item_id": "m10_black_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "oversized",
+        "style_tags": [
+          "streetwear",
+          "casual"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m10_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "style_tags": [
+          "casual"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m10_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "style_tags": [
+          "casual"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m10_blue_oxford",
+      "m10_beige_trousers",
+      "m10_brown_loafers"
+    ],
+    "b": [
+      "m10_black_tee",
+      "m10_blue_jeans",
+      "m10_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A better follows the requested old-money-inspired direction using the recorded tags, a restrained blue-and-beige palette, and a tailored shirt with straight trousers. The stripe adds some detail while the other pieces are solid. Option B reads more casual from its tags and relaxed fit. This aesthetic label does not establish quality, brand, wealth, or social class; use it only as a visual brief, and check the venue's expectations."
+  },
+  {
+    "id": "stylist_train_11",
+    "split": "train",
+    "occasion": "winter smart-casual commute",
+    "wardrobe": [
+      {
+        "item_id": "m11_cream_turtleneck",
+        "category": "Top",
+        "name": "knit top",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "regular",
+        "fabric": "wool blend",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m11_navy_coat",
+        "category": "Outerwear",
+        "name": "coat",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "tailored",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "smart casual",
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m11_grey_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "grey",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m11_black_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m11_red_sweatshirt",
+        "category": "Top",
+        "name": "sweatshirt",
+        "color": "red",
+        "pattern": "graphic",
+        "fit": "oversized",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m11_black_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m11_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Winter"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m11_cream_turtleneck",
+      "m11_navy_coat",
+      "m11_grey_trousers",
+      "m11_black_boots"
+    ],
+    "b": [
+      "m11_red_sweatshirt",
+      "m11_black_jeans",
+      "m11_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A has stronger smart-casual cues from its tags. Cream, navy, grey, and black form a restrained palette, while the regular knit under a tailored coat creates a clear layer and fit contrast. Option B is more relaxed. Winter is recorded, but warmth depends on construction and conditions not supplied here."
+  },
+  {
+    "id": "stylist_train_12",
+    "split": "train",
+    "occasion": "summer garden party",
+    "wardrobe": [
+      {
+        "item_id": "m12_coral_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "coral",
+        "pattern": "floral",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m12_white_sandals",
+        "category": "Footwear",
+        "name": "sandals",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "party",
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m12_navy_top",
+        "category": "Top",
+        "name": "top",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "fitted",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m12_cream_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "wide",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "party",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m12_tan_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "tan",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Summer"
+        ],
+        "occasion_tags": [
+          "party"
+        ]
+      }
+    ],
+    "a": [
+      "m12_coral_dress",
+      "m12_white_sandals"
+    ],
+    "b": [
+      "m12_navy_top",
+      "m12_cream_skirt",
+      "m12_tan_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A is the more direct party outfit because the dress and sandals are both tagged for parties and summer. Coral with white can feel bright; the floral pattern already supplies a focal point, so the solid sandals keep the set simpler. Option B creates a fitted-top/wider-skirt contrast and a quieter navy-and-cream palette. Both are plausible; venue formality and pattern scale are not provided, so use the invitation and your preferred silhouette to decide."
+  },
+  {
+    "id": "stylist_valid_01",
+    "split": "valid",
+    "occasion": "formal presentation",
+    "wardrobe": [
+      {
+        "item_id": "v01_black_blazer",
+        "category": "Outerwear",
+        "name": "blazer",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "v01_white_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "v01_navy_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "v01_black_oxfords",
+        "category": "Footwear",
+        "name": "dress shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "v01_amber_jacket",
+        "category": "Outerwear",
+        "name": "jacket",
+        "color": "amber",
+        "pattern": "plaid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "v01_grey_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "grey",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "v01_denim",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "v01_black_blazer",
+      "v01_white_shirt",
+      "v01_navy_trousers",
+      "v01_black_oxfords"
+    ],
+    "b": [
+      "v01_amber_jacket",
+      "v01_grey_tee",
+      "v01_denim"
+    ],
+    "choose": "a",
+    "answer": "Option A is better supported for a formal presentation: all four selected pieces have formal or office tags. Black, white, and navy make a quiet palette, while the tailored blazer over a regular shirt gives a structured outer-to-inner layer. Option B's plaid jacket and relaxed jeans read casual by their tags. The exact presentation dress code may require other details, but do not add an unlisted item."
+  },
+  {
+    "id": "stylist_valid_02",
+    "split": "valid",
+    "occasion": "casual art market",
+    "wardrobe": [
+      {
+        "item_id": "v02_mustard_sweater",
+        "category": "Top",
+        "name": "sweater",
+        "color": "mustard",
+        "pattern": "solid",
+        "fit": "oversized",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "v02_indigo_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "indigo",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "v02_brown_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "v02_blue_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "blue",
+        "pattern": "stripe",
+        "fit": "fitted",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "v02_cream_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "wide-leg",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "v02_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      }
+    ],
+    "a": [
+      "v02_mustard_sweater",
+      "v02_indigo_jeans",
+      "v02_brown_boots"
+    ],
+    "b": [
+      "v02_blue_blouse",
+      "v02_cream_trousers",
+      "v02_black_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A suits the stated casual setting according to its tags. Mustard, indigo, and brown create a warm/cool mix with the sweater as the likely focal color; the oversized sweater over straight jeans contrasts the recorded volumes. Option B is more polished and has a fitted top with wide-leg trousers. Color names do not reveal exact undertones or saturation, so check the pieces together and choose the proportion you prefer."
+  },
+  {
+    "id": "stylist_valid_03",
+    "split": "valid",
+    "occasion": "semi-formal evening event",
+    "wardrobe": [
+      {
+        "item_id": "v03_plum_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "plum",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "formal",
+          "party"
+        ]
+      },
+      {
+        "item_id": "v03_silver_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "silver",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal",
+          "party"
+        ]
+      },
+      {
+        "item_id": "v03_green_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "green",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "v03_black_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "party",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "v03_black_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      }
+    ],
+    "a": [
+      "v03_plum_dress",
+      "v03_silver_shoes"
+    ],
+    "b": [
+      "v03_green_blouse",
+      "v03_black_skirt",
+      "v03_black_shoes"
+    ],
+    "choose": "a",
+    "answer": "Option A is the stronger semi-formal starting point because both pieces carry formal tags, and the solid plum dress keeps the palette focused with silver shoes. Option B is also party-tagged but only the skirt and shoes suggest a more restrained direction; the blouse is not tagged formal. The dress's length, neckline, and event rules are unknown, so verify those before treating it as suitable."
+  },
+  {
+    "id": "stylist_test_01",
+    "split": "test",
+    "occasion": "smart-casual client lunch",
+    "wardrobe": [
+      {
+        "item_id": "t01_teal_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "teal",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "t01_sand_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "sand",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "t01_brown_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "office",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "t01_orange_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "orange",
+        "pattern": "graphic",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t01_black_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t01_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "t01_teal_shirt",
+      "t01_sand_trousers",
+      "t01_brown_loafers"
+    ],
+    "b": [
+      "t01_orange_tee",
+      "t01_black_jeans",
+      "t01_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A is better supported for a client lunch with smart-casual intent: its three pieces have matching occasion tags, and teal, sand, and brown make a restrained palette. The tailored shirt with straight trousers has a more defined line than Option B's relaxed jeans and graphic top. The brighter option could still suit a casual client culture; ask about the setting if the dress code is uncertain."
+  },
+  {
+    "id": "stylist_test_02",
+    "split": "test",
+    "occasion": "casual evening concert",
+    "wardrobe": [
+      {
+        "item_id": "t02_lavender_top",
+        "category": "Top",
+        "name": "top",
+        "color": "lavender",
+        "pattern": "stripe",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t02_black_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "casual",
+          "party"
+        ]
+      },
+      {
+        "item_id": "t02_black_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t02_white_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "white",
+        "pattern": "graphic",
+        "fit": "oversized",
+        "occasion_tags": [
+          "streetwear",
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t02_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "t02_red_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "red",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "t02_lavender_top",
+      "t02_black_skirt",
+      "t02_black_boots"
+    ],
+    "b": [
+      "t02_white_tee",
+      "t02_blue_jeans",
+      "t02_red_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A is a cohesive casual choice: lavender and black keep the palette focused, the striped top is paired with solid pieces, and the black boots repeat the skirt color. Option B is more graphic and high contrast, with an oversized top over relaxed jeans; that can be an intentional concert look if you prefer a streetwear feel. No venue, weather, or comfort details are provided, so the recommendation is about the recorded visual cues only."
+  },
+  {
+    "id": "stylist_test_03",
+    "split": "test",
+    "occasion": "formal event, dress code not supplied",
+    "wardrobe": [
+      {
+        "item_id": "t03_blue_blazer",
+        "category": "Outerwear",
+        "name": "blazer",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "t03_white_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "t03_grey_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "grey",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "formal",
+          "office"
+        ]
+      },
+      {
+        "item_id": "t03_black_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal"
+        ]
+      },
+      {
+        "item_id": "t03_red_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "red",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "t03_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      }
+    ],
+    "a": [
+      "t03_blue_blazer",
+      "t03_white_shirt",
+      "t03_grey_trousers",
+      "t03_black_shoes"
+    ],
+    "b": [
+      "t03_red_dress",
+      "t03_black_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A is more defensible as a formal starting point because its pieces are explicitly tagged formal; Option B is tagged for a party, which does not establish suitability for this event. Navy, white, grey, and black coordinate as a restrained set, and the tailored blazer adds a structured outer layer over straight trousers. Since the invitation's specific dress code is missing, confirm it before deciding. I cannot infer formality from color alone."
+  },
+  {
+    "id": "stylist_train_13",
+    "split": "train",
+    "occasion": "casual brunch",
+    "wardrobe": [
+      {
+        "item_id": "m13_blue_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m13_white_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "wide",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m13_tan_sandals",
+        "category": "Footwear",
+        "name": "sandals",
+        "color": "tan",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m13_pink_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "pink",
+        "pattern": "floral",
+        "fit": "fitted",
+        "occasion_tags": [
+          "party",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m13_navy_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "navy",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m13_brown_loafers",
+        "category": "Footwear",
+        "name": "loafers",
+        "color": "brown",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      }
+    ],
+    "a": [
+      "m13_blue_shirt",
+      "m13_white_skirt",
+      "m13_tan_sandals"
+    ],
+    "b": [
+      "m13_pink_blouse",
+      "m13_navy_trousers",
+      "m13_brown_loafers"
+    ],
+    "choose": "a",
+    "answer": "Option A better matches the casual brunch tags. Blue, white, and tan form a light, low-complexity palette, while the regular shirt and wider skirt create some movement in proportion if that feels comfortable to you. Option B is more polished and pattern-led, with a fitted floral blouse against straight navy trousers. Both are plausible; the setting and your preference determine which direction feels right."
+  },
+  {
+    "id": "stylist_train_14",
+    "split": "train",
+    "occasion": "formal dinner",
+    "wardrobe": [
+      {
+        "item_id": "m14_black_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "tailored",
+        "occasion_tags": [
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m14_burgundy_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "burgundy",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "formal"
+        ]
+      },
+      {
+        "item_id": "m14_cream_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "cream",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m14_black_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m14_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      }
+    ],
+    "a": [
+      "m14_black_dress",
+      "m14_burgundy_shoes"
+    ],
+    "b": [
+      "m14_cream_blouse",
+      "m14_black_skirt",
+      "m14_black_flats"
+    ],
+    "choose": "a",
+    "answer": "Option A is the better supported formal choice because its dress and shoes both carry formal tags. Black with burgundy adds a controlled accent without relying on a color-matching rule. Option B has a simple cream-and-black palette but is tagged smart casual rather than formal. The dinner's dress code, dress length, and shoe comfort are not in the record; verify those practical details."
+  },
+  {
+    "id": "stylist_train_15",
+    "split": "train",
+    "occasion": "relaxed day trip",
+    "wardrobe": [
+      {
+        "item_id": "m15_green_overshirt",
+        "category": "Top",
+        "name": "overshirt",
+        "color": "green",
+        "pattern": "solid",
+        "fit": "oversized",
+        "occasion_tags": [
+          "casual",
+          "streetwear"
+        ]
+      },
+      {
+        "item_id": "m15_white_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m15_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m15_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m15_red_sweatshirt",
+        "category": "Top",
+        "name": "sweatshirt",
+        "color": "red",
+        "pattern": "graphic",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m15_black_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m15_black_boots",
+        "category": "Footwear",
+        "name": "boots",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m15_green_overshirt",
+      "m15_white_tee",
+      "m15_blue_jeans",
+      "m15_white_sneakers"
+    ],
+    "b": [
+      "m15_red_sweatshirt",
+      "m15_black_trousers",
+      "m15_black_boots"
+    ],
+    "choose": "a",
+    "answer": "Option A is more adaptable for a relaxed day trip from the available tags. The overshirt can sit over the listed T-shirt; green, white, and blue make a connected palette, and straight jeans balance the oversized outer shirt. Option B is a simpler red-and-black alternative with fewer layers. The record does not include forecast, travel activity, or jacket material, so check practical conditions instead of assuming warmth or rain protection."
+  },
+  {
+    "id": "stylist_train_16",
+    "split": "train",
+    "occasion": "party with a colorful dress brief",
+    "wardrobe": [
+      {
+        "item_id": "m16_cobalt_dress",
+        "category": "Dress",
+        "name": "dress",
+        "color": "cobalt blue",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m16_orange_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "orange",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m16_cobalt_top",
+        "category": "Top",
+        "name": "top",
+        "color": "cobalt blue",
+        "pattern": "solid",
+        "fit": "fitted",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m16_black_skirt",
+        "category": "Bottom",
+        "name": "skirt",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "party"
+        ]
+      },
+      {
+        "item_id": "m16_black_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "party"
+        ]
+      }
+    ],
+    "a": [
+      "m16_cobalt_dress",
+      "m16_orange_shoes"
+    ],
+    "b": [
+      "m16_cobalt_top",
+      "m16_black_skirt",
+      "m16_black_shoes"
+    ],
+    "choose": "a",
+    "answer": "Option A uses the requested colorful direction: cobalt and orange create a high-contrast pairing, which can feel energetic when that is intentional. Option B repeats cobalt against black and is the quieter alternative. Both are party-tagged; A's single dress gives one uninterrupted garment line, while B combines a fitted top with a straight skirt. Exact shade and saturation are unknown, so the color-wheel relationship does not guarantee the combination will feel right to you."
+  },
+  {
+    "id": "stylist_train_17",
+    "split": "train",
+    "occasion": "smart-casual gallery visit",
+    "wardrobe": [
+      {
+        "item_id": "m17_lilac_blouse",
+        "category": "Top",
+        "name": "blouse",
+        "color": "lilac",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m17_charcoal_pants",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "charcoal",
+        "pattern": "solid",
+        "fit": "straight",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m17_black_flats",
+        "category": "Footwear",
+        "name": "flats",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m17_white_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "white",
+        "pattern": "graphic",
+        "fit": "oversized",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m17_black_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m17_white_sneakers",
+        "category": "Footwear",
+        "name": "sneakers",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m17_lilac_blouse",
+      "m17_charcoal_pants",
+      "m17_black_flats"
+    ],
+    "b": [
+      "m17_white_tee",
+      "m17_black_jeans",
+      "m17_white_sneakers"
+    ],
+    "choose": "a",
+    "answer": "Option A aligns more closely with smart casual from its recorded tags. Lilac, charcoal, and black create a restrained set, and the regular blouse with straight trousers stays visually balanced without claiming a particular body effect. Option B is more relaxed and graphic-led, so it may be right if the gallery visit is informal. The local venue's norms are not known; use the tags as clues, not guarantees."
+  },
+  {
+    "id": "stylist_train_18",
+    "split": "train",
+    "occasion": "cool spring layering",
+    "wardrobe": [
+      {
+        "item_id": "m18_blue_shirt",
+        "category": "Top",
+        "name": "shirt",
+        "color": "blue",
+        "pattern": "stripe",
+        "fit": "regular",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m18_grey_cardigan",
+        "category": "Outerwear",
+        "name": "cardigan",
+        "color": "grey",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "fabric": "knit",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "casual",
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m18_black_trousers",
+        "category": "Bottom",
+        "name": "trousers",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "straight",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m18_black_shoes",
+        "category": "Footwear",
+        "name": "shoes",
+        "color": "black",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "smart casual"
+        ]
+      },
+      {
+        "item_id": "m18_red_jacket",
+        "category": "Outerwear",
+        "name": "jacket",
+        "color": "red",
+        "pattern": "solid",
+        "fit": "oversized",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m18_white_tee",
+        "category": "Top",
+        "name": "T-shirt",
+        "color": "white",
+        "pattern": "solid",
+        "fit": "regular",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      },
+      {
+        "item_id": "m18_blue_jeans",
+        "category": "Bottom",
+        "name": "jeans",
+        "color": "blue",
+        "pattern": "solid",
+        "fit": "relaxed",
+        "seasons": [
+          "Spring"
+        ],
+        "occasion_tags": [
+          "casual"
+        ]
+      }
+    ],
+    "a": [
+      "m18_blue_shirt",
+      "m18_grey_cardigan",
+      "m18_black_trousers",
+      "m18_black_shoes"
+    ],
+    "b": [
+      "m18_white_tee",
+      "m18_red_jacket",
+      "m18_blue_jeans"
+    ],
+    "choose": "a",
+    "answer": "Option A layers the striped shirt under a solid grey cardigan, then uses black trousers and shoes to anchor the blue-grey-black palette. It is the more polished of the two recorded combinations. Option B uses the red jacket as a stronger focal point and looks more casual from its tags. Both are marked Spring, but neither season tag establishes actual temperature or warmth; check the forecast and the garment's construction."
+  }
+]

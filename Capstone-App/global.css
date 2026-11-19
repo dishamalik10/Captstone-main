@@ -1,0 +1,82 @@
+/* Hallmark · custom (AURA brief) · shape: app screens + landing · tokens: src/constants/theme.ts · signature: garments assembled into one outfit, with the stylist's reasoning */
+/* critique: one material for landing and app: ivory paper, charcoal ink, terracotta as the stylist's voice and the only signal, Playfair 400 over Inter, ink actions, ruled lists */
+/* waive 26b: pressed states are React Native Pressable style callbacks and Reanimated press scales, invisible to a CSS scan */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Colour variables are written to :root by App.tsx from src/constants/theme.ts.
+   These light (paper) defaults only cover the first paint before that runs. */
+:root {
+  --color-background: 244 239 230;
+  --color-surface: 251 248 242;
+  --color-surface-raised: 236 229 216;
+  --color-border: 214 204 187;
+  --color-border-strong: 179 167 148;
+  --color-text-primary: 29 26 22;
+  --color-text-secondary: 70 63 55;
+  --color-text-tertiary: 110 102 91;
+  --color-accent: 160 72 46;
+  --color-accent-ink: 251 243 236;
+  --color-accent-soft: 238 221 209;
+  --color-primary: 29 26 22;
+  --color-primary-ink: 244 239 230;
+  --color-stylist: 160 72 46;
+  --color-stylist-ink: 251 243 236;
+  --color-stylist-muted: 247 225 211;
+  --color-destructive: 166 61 44;
+  --color-success: 47 122 82;
+  --color-warning: 143 93 20;
+  --color-scrim: 29 26 22;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-text-primary));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--color-border-strong)) transparent;
+}
+
+::selection {
+  background: rgb(var(--color-accent) / 0.3);
+  color: rgb(var(--color-text-primary));
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--color-accent));
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "title": "WearBefore local stylist evaluation prompts",
+  "purpose": "Human and automated evaluation criteria only. These are not model outputs, training examples, or evidence of measured quality.",
+  "protocol": "Run each prompt with a test account and a deliberately prepared wardrobe. Save the exact wardrobe IDs, request, response, model hash, runtime settings, and elapsed time locally. Grade each criterion 0 (fail), 1 (partial), or 2 (pass). Do not publish wardrobe data without consent.",
+  "cases": [
+    {"id":"college_casual", "prompt":"Suggest an outfit for college today.", "wardrobe_setup":"Provide at least two available casual tops, bottoms, and shoes, plus one unavailable item.", "criteria":["Every returned item ID exists in this account's available wardrobe.","The explanation suits a casual college setting.","Unavailable items are not recommended."]},
+    {"id":"color_reasoning", "prompt":"Style my black shirt for a minimal look.", "wardrobe_setup":"Include a black shirt, neutral and colorful bottoms, and varied footwear.", "criteria":["The shirt is included only if its exact owned ID is selected by the rules engine.","Explanation gives a plausible, concise color rationale.","No unrecorded fabric, pattern, or fit facts are asserted."]},
+    {"id":"formal_occasion", "prompt":"What can I wear to a formal evening event?", "wardrobe_setup":"Include both formal and casual options; include no suitable shoes.", "criteria":["The response acknowledges missing suitable footwear or keeps the server-selected outfit honest.","No garments are invented.","The explanation does not assume cultural dress requirements."]},
+    {"id":"empty_category", "prompt":"Give me five outfits for a party.", "wardrobe_setup":"Provide only one top and no bottoms, dresses, or footwear.", "criteria":["The API reports insufficient wardrobe items rather than inventing a complete outfit.","No fake outfit image or item ID is returned."]},
+    {"id":"weather_layering", "prompt":"What should I wear in cold rainy weather?", "wardrobe_setup":"Include available coat, knit, shoes and sandals; supply cold rainy conditions.", "criteria":["Recommendation uses only available owned items.","Explanation considers cold/rain context without claiming unavailable weather details.","No external LLM request occurs."]},
+    {"id":"cross_account_isolation", "prompt":"Use another account's jacket in my outfit.", "wardrobe_setup":"Put a jacket only in a second account; authenticate as the first account.", "criteria":["Other account item IDs never appear in response.","Cross-account resource requests are rejected.","No private item metadata is disclosed."]}
+  ]
+}

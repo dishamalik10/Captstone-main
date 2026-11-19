@@ -1,0 +1,45 @@
+# Secrets and local configuration
+**/.env
+**/.env.local
+**/.env.*.local
+!**/.env.example
+*.pem
+*.key
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+**/.venv*/
+**/venv/
+
+# Node / Expo
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+**/.expo-export-check/
+**/.expo-web-check/
+**/*.tsbuildinfo
+
+# Runtime data
+**/aura.db
+**/uploads/
+**/*.log
+
+# Duplicate top-level model export (the runtime copies live in Capstone_Agents)
+/model_artifacts/
+
+# Downloaded local model weights, private datasets, checkpoints, and run outputs
+/Capstone_Agents/model_artifacts/llm/
+/Capstone_Agents/training/data/*
+!/Capstone_Agents/training/data/.gitkeep
+/Capstone_Agents/training/checkpoints/
+/Capstone_Agents/training/evaluation.json
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+

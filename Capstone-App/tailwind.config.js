@@ -1,0 +1,75 @@
+/** @type {import('tailwindcss').Config} */
+// Colour values live in src/constants/theme.ts and arrive as CSS variables
+// ("r g b" triplets), so every class works in dark and light on native and web.
+const token = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
+
+module.exports = {
+  content: ['./App.tsx', './src/**/*.{js,jsx,ts,tsx}'],
+  presets: [require('nativewind/preset')],
+  theme: {
+    extend: {
+      colors: {
+        background: token('background'),
+        surface: token('surface'),
+        'surface-raised': token('surface-raised'),
+        accent: token('accent'),
+        'accent-ink': token('accent-ink'),
+        'accent-soft': token('accent-soft'),
+        'accent-muted': token('accent-soft'),
+        primary: token('primary'),
+        'primary-ink': token('primary-ink'),
+        stylist: token('stylist'),
+        'stylist-ink': token('stylist-ink'),
+        'stylist-muted': token('stylist-muted'),
+        'text-primary': token('text-primary'),
+        'text-secondary': token('text-secondary'),
+        'text-tertiary': token('text-tertiary'),
+        destructive: token('destructive'),
+        success: token('success'),
+        warning: token('warning'),
+        border: token('border'),
+        'border-strong': token('border-strong'),
+        scrim: token('scrim'),
+      },
+      fontFamily: {
+        display: ['PlayfairDisplay_400Regular'],
+        'display-medium': ['PlayfairDisplay_500Medium'],
+        'display-bold': ['PlayfairDisplay_700Bold'],
+        body: ['Inter_400Regular'],
+        'body-medium': ['Inter_500Medium'],
+        'body-semibold': ['Inter_600SemiBold'],
+        mono: ['Inter_400Regular'],
+      },
+      borderRadius: {
+        sm: '4px',
+        md: '8px',
+        lg: '14px',
+        xl: '20px',
+      },
+      spacing: {
+        1: '4px',
+        2: '8px',
+        3: '12px',
+        4: '16px',
+        5: '20px',
+        6: '24px',
+        8: '32px',
+        10: '40px',
+        12: '48px',
+        16: '64px',
+      },
+      fontSize: {
+        xs: ['12px', { lineHeight: '16px' }],
+        sm: ['14px', { lineHeight: '20px' }],
+        base: ['16px', { lineHeight: '24px' }],
+        md: ['17px', { lineHeight: '25px' }],
+        lg: ['20px', { lineHeight: '27px' }],
+        xl: ['24px', { lineHeight: '30px' }],
+        '2xl': ['30px', { lineHeight: '36px' }],
+        '3xl': ['38px', { lineHeight: '44px' }],
+        '4xl': ['48px', { lineHeight: '54px' }],
+      },
+    },
+  },
+  plugins: [],
+};
