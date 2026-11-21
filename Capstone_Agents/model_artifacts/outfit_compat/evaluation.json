@@ -1,0 +1,500 @@
+{
+  "nondisjoint": {
+    "test": {
+      "compatibility_auc": 0.8652059299999999,
+      "fitb_accuracy": 0.52,
+      "compat_examples": 20000,
+      "fitb_questions": 10000
+    },
+    "baseline_cosine_similarity": {
+      "compatibility_auc": 0.6570671100000001,
+      "fitb_accuracy": 0.4086,
+      "compat_examples": 20000,
+      "fitb_questions": 10000
+    },
+    "baseline_random": {
+      "compatibility_auc": 0.5,
+      "fitb_accuracy": 0.25
+    },
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.64859938621521,
+        "compatibility_auc": 0.7741388,
+        "fitb_accuracy": 0.445,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 2,
+        "loss": 0.6013439893722534,
+        "compatibility_auc": 0.80312452,
+        "fitb_accuracy": 0.4682,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 3,
+        "loss": 0.5859885215759277,
+        "compatibility_auc": 0.80702612,
+        "fitb_accuracy": 0.4784,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 4,
+        "loss": 0.5780048966407776,
+        "compatibility_auc": 0.81424328,
+        "fitb_accuracy": 0.4814,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 5,
+        "loss": 0.5722895860671997,
+        "compatibility_auc": 0.8241646,
+        "fitb_accuracy": 0.4922,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 6,
+        "loss": 0.5625219941139221,
+        "compatibility_auc": 0.82841202,
+        "fitb_accuracy": 0.4896,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 7,
+        "loss": 0.5583407878875732,
+        "compatibility_auc": 0.8366174399999999,
+        "fitb_accuracy": 0.5022,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 8,
+        "loss": 0.5523765087127686,
+        "compatibility_auc": 0.83543324,
+        "fitb_accuracy": 0.5114,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 9,
+        "loss": 0.5482013821601868,
+        "compatibility_auc": 0.83551654,
+        "fitb_accuracy": 0.5026,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 10,
+        "loss": 0.5445067882537842,
+        "compatibility_auc": 0.8376613600000001,
+        "fitb_accuracy": 0.5066,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 11,
+        "loss": 0.5401215553283691,
+        "compatibility_auc": 0.84295966,
+        "fitb_accuracy": 0.5096,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 12,
+        "loss": 0.5328277349472046,
+        "compatibility_auc": 0.8456607599999999,
+        "fitb_accuracy": 0.5158,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 13,
+        "loss": 0.5289317965507507,
+        "compatibility_auc": 0.8447322399999999,
+        "fitb_accuracy": 0.5134,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 14,
+        "loss": 0.5252075791358948,
+        "compatibility_auc": 0.8468449199999999,
+        "fitb_accuracy": 0.5144,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 15,
+        "loss": 0.5191993117332458,
+        "compatibility_auc": 0.8459498399999998,
+        "fitb_accuracy": 0.52,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 16,
+        "loss": 0.5164679288864136,
+        "compatibility_auc": 0.85423768,
+        "fitb_accuracy": 0.524,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 17,
+        "loss": 0.5120078921318054,
+        "compatibility_auc": 0.85429956,
+        "fitb_accuracy": 0.5276,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 18,
+        "loss": 0.5070136785507202,
+        "compatibility_auc": 0.85479674,
+        "fitb_accuracy": 0.523,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 19,
+        "loss": 0.5023893117904663,
+        "compatibility_auc": 0.8572836,
+        "fitb_accuracy": 0.5132,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 20,
+        "loss": 0.4992222785949707,
+        "compatibility_auc": 0.8601958399999999,
+        "fitb_accuracy": 0.5222,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 21,
+        "loss": 0.4956856966018677,
+        "compatibility_auc": 0.85992402,
+        "fitb_accuracy": 0.52,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 22,
+        "loss": 0.491767942905426,
+        "compatibility_auc": 0.8616138200000001,
+        "fitb_accuracy": 0.5224,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 23,
+        "loss": 0.48640817403793335,
+        "compatibility_auc": 0.86130548,
+        "fitb_accuracy": 0.5236,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 24,
+        "loss": 0.48566052317619324,
+        "compatibility_auc": 0.86084828,
+        "fitb_accuracy": 0.5188,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 25,
+        "loss": 0.48666876554489136,
+        "compatibility_auc": 0.8616781600000001,
+        "fitb_accuracy": 0.5212,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 26,
+        "loss": 0.4825402498245239,
+        "compatibility_auc": 0.86142472,
+        "fitb_accuracy": 0.5252,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 27,
+        "loss": 0.4808068871498108,
+        "compatibility_auc": 0.86313862,
+        "fitb_accuracy": 0.522,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 28,
+        "loss": 0.4790506362915039,
+        "compatibility_auc": 0.8620626800000001,
+        "fitb_accuracy": 0.522,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 29,
+        "loss": 0.47852784395217896,
+        "compatibility_auc": 0.8624290000000001,
+        "fitb_accuracy": 0.522,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      },
+      {
+        "epoch": 30,
+        "loss": 0.4797406792640686,
+        "compatibility_auc": 0.8621903999999999,
+        "fitb_accuracy": 0.5254,
+        "compat_examples": 10000,
+        "fitb_questions": 5000
+      }
+    ],
+    "training_outfits": 53306
+  },
+  "disjoint": {
+    "test": {
+      "compatibility_auc": 0.815260678631924,
+      "fitb_accuracy": 0.47936612743479695,
+      "compat_examples": 30290,
+      "fitb_questions": 15145
+    },
+    "baseline_cosine_similarity": {
+      "compatibility_auc": 0.6515337802584265,
+      "fitb_accuracy": 0.3953780125453945,
+      "compat_examples": 30290,
+      "fitb_questions": 15145
+    },
+    "baseline_random": {
+      "compatibility_auc": 0.5,
+      "fitb_accuracy": 0.25
+    },
+    "history": [
+      {
+        "epoch": 1,
+        "loss": 0.6708427667617798,
+        "compatibility_auc": 0.757133888888889,
+        "fitb_accuracy": 0.4186666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 2,
+        "loss": 0.6161565184593201,
+        "compatibility_auc": 0.7900292222222223,
+        "fitb_accuracy": 0.4573333333333333,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 3,
+        "loss": 0.5992881655693054,
+        "compatibility_auc": 0.8005642222222222,
+        "fitb_accuracy": 0.463,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 4,
+        "loss": 0.5871762633323669,
+        "compatibility_auc": 0.808223888888889,
+        "fitb_accuracy": 0.469,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 5,
+        "loss": 0.5775279998779297,
+        "compatibility_auc": 0.8236461111111111,
+        "fitb_accuracy": 0.49133333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 6,
+        "loss": 0.5682413578033447,
+        "compatibility_auc": 0.8207975,
+        "fitb_accuracy": 0.48966666666666664,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 7,
+        "loss": 0.563714325428009,
+        "compatibility_auc": 0.8208596666666665,
+        "fitb_accuracy": 0.48833333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 8,
+        "loss": 0.5567438006401062,
+        "compatibility_auc": 0.8276065555555556,
+        "fitb_accuracy": 0.49033333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 9,
+        "loss": 0.5506454110145569,
+        "compatibility_auc": 0.8277526666666666,
+        "fitb_accuracy": 0.48833333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 10,
+        "loss": 0.540195643901825,
+        "compatibility_auc": 0.8349167777777777,
+        "fitb_accuracy": 0.48733333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 11,
+        "loss": 0.536929726600647,
+        "compatibility_auc": 0.8342229999999999,
+        "fitb_accuracy": 0.49033333333333334,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 12,
+        "loss": 0.5316814184188843,
+        "compatibility_auc": 0.8343008888888889,
+        "fitb_accuracy": 0.49633333333333335,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 13,
+        "loss": 0.5238490700721741,
+        "compatibility_auc": 0.839673111111111,
+        "fitb_accuracy": 0.49833333333333335,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 14,
+        "loss": 0.5181037783622742,
+        "compatibility_auc": 0.8382800000000001,
+        "fitb_accuracy": 0.495,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 15,
+        "loss": 0.511944055557251,
+        "compatibility_auc": 0.8431009444444446,
+        "fitb_accuracy": 0.499,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 16,
+        "loss": 0.5034593343734741,
+        "compatibility_auc": 0.8432230000000001,
+        "fitb_accuracy": 0.499,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 17,
+        "loss": 0.4981921315193176,
+        "compatibility_auc": 0.8445082222222221,
+        "fitb_accuracy": 0.5053333333333333,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 18,
+        "loss": 0.4938482344150543,
+        "compatibility_auc": 0.8442603333333335,
+        "fitb_accuracy": 0.498,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 19,
+        "loss": 0.48658084869384766,
+        "compatibility_auc": 0.8471993333333333,
+        "fitb_accuracy": 0.5056666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 20,
+        "loss": 0.4795409142971039,
+        "compatibility_auc": 0.8460571111111111,
+        "fitb_accuracy": 0.5046666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 21,
+        "loss": 0.4768131375312805,
+        "compatibility_auc": 0.8479407777777778,
+        "fitb_accuracy": 0.5016666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 22,
+        "loss": 0.47249075770378113,
+        "compatibility_auc": 0.8462648888888888,
+        "fitb_accuracy": 0.5066666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 23,
+        "loss": 0.4694535732269287,
+        "compatibility_auc": 0.8486967777777779,
+        "fitb_accuracy": 0.5103333333333333,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 24,
+        "loss": 0.46301695704460144,
+        "compatibility_auc": 0.8470988888888888,
+        "fitb_accuracy": 0.5013333333333333,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 25,
+        "loss": 0.4620850086212158,
+        "compatibility_auc": 0.8490288888888889,
+        "fitb_accuracy": 0.506,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 26,
+        "loss": 0.4593641757965088,
+        "compatibility_auc": 0.8501922777777778,
+        "fitb_accuracy": 0.5036666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      },
+      {
+        "epoch": 27,
+        "loss": 0.4552828073501587,
+        "compatibility_auc": 0.849784,
+        "fitb_accuracy": 0.5046666666666667,
+        "compat_examples": 6000,
+        "fitb_questions": 3000
+      }
+    ],
+    "training_outfits": 16995
+  }
+}

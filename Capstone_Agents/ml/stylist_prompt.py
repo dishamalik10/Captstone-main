@@ -33,7 +33,9 @@ RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "choice": {"type": "integer", "minimum": 1, "maximum": MAX_OPTIONS},
-        "reason": {"type": "string", "maxLength": REASON_MAX_CHARS},
+        # No maxLength: llama.cpp unrolls it into a grammar nested REASON_MAX_CHARS deep, which
+        # exceeds its recursion limit and crashes the process. parse_answer trims the reason instead.
+        "reason": {"type": "string"},
     },
     "required": ["choice", "reason"],
 }

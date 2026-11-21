@@ -1,0 +1,39 @@
+{
+  "model_config": {
+    "embedding_dim": 512,
+    "max_items": 16,
+    "model_dim": 256,
+    "num_heads": 4,
+    "num_layers": 4,
+    "ff_dim": 512,
+    "dropout": 0.1,
+    "input_noise": 0.05,
+    "feature_dropout": 0.1
+  },
+  "training_split": "Polyvore Outfits nondisjoint (train part only)",
+  "test_metrics": {
+    "compatibility_auc": 0.8652059299999999,
+    "fitb_accuracy": 0.52,
+    "compat_examples": 20000,
+    "fitb_questions": 10000
+  },
+  "baselines": {
+    "cosine_similarity": {
+      "compatibility_auc": 0.6570671100000001,
+      "fitb_accuracy": 0.4086,
+      "compat_examples": 20000,
+      "fitb_questions": 10000
+    },
+    "random": {
+      "compatibility_auc": 0.5,
+      "fitb_accuracy": 0.25
+    }
+  },
+  "embedding_source": "AURA fashion_cnn_final.keras, layer fashion_feature_normalization (512-d)",
+  "image_preprocessing": "RGB, resized to 224x224 (Lanczos), pixel range 0-255",
+  "score_meaning": "sigmoid probability that the garments form a compatible outfit (balanced training); not calibrated for personal taste",
+  "dataset": "Polyvore Outfits (Vasileva et al., ECCV 2018), CC BY 4.0",
+  "trained_at": "2026-11-20T07:07:39.083375+00:00",
+  "tensorflow": "2.21.0",
+  "keras": "3.13.2"
+}

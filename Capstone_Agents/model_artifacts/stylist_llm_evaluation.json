@@ -1,0 +1,36 @@
+{
+  "random": 0.2,
+  "compatibility_model_only": {
+    "accuracy": 0.53,
+    "accuracy_visual": 0.64,
+    "accuracy_season": 0.3979591836734694,
+    "accuracy_occasion": 0.4306930693069307
+  },
+  "base_qwen_zero_shot": {
+    "accuracy": 0.39,
+    "accuracy_visual": 0.445859872611465,
+    "accuracy_season": 0.3181818181818182,
+    "accuracy_occasion": 0.3333333333333333,
+    "valid_json_rate": 1.0,
+    "avoided_colour_violations": 24
+  },
+  "training": {
+    "train_runtime": 6913.9303,
+    "train_samples_per_second": 1.736,
+    "train_steps_per_second": 0.108,
+    "total_flos": 5.445581563562803e+16,
+    "train_loss": 0.08531834483146668,
+    "epoch": 1.0,
+    "final_eval_loss": 0.027254533022642136,
+    "wall_minutes_this_session": 116.37443712155024,
+    "examples": 12000
+  },
+  "fine_tuned": {
+    "accuracy": 0.8366666666666667,
+    "accuracy_visual": 0.8726114649681529,
+    "accuracy_season": 0.8409090909090909,
+    "accuracy_occasion": 0.7777777777777778,
+    "valid_json_rate": 1.0,
+    "avoided_colour_violations": 0
+  }
+}

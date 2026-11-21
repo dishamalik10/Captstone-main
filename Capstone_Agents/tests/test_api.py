@@ -307,8 +307,13 @@ def test_chat_returns_clear_error_when_local_model_is_missing(monkeypatch, tmp_p
     from settings import settings
     import services.local_llm as local_llm_module
     settings_values = asdict(settings)
+    import services.stylist_selector as stylist_selector_module
     settings_values["llm_model_path"] = tmp_path / "missing.gguf"
-    monkeypatch.setattr(local_llm_module, "settings", type("TestSettings", (), settings_values)())
+    # Chat prefers the fine-tuned stylist GGUF when it is installed, so hide that one too.
+    settings_values["stylist_llm_model_path"] = tmp_path / "missing-stylist.gguf"
+    test_settings = type("TestSettings", (), settings_values)()
+    monkeypatch.setattr(local_llm_module, "settings", test_settings)
+    monkeypatch.setattr(stylist_selector_module, "settings", test_settings)
     monkeypatch.setattr(local_llm, "_model", None)
     with TestClient(app) as client:
         signup = client.post(

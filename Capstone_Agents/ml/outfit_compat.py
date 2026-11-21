@@ -89,22 +89,24 @@ def build_model(config: dict[str, Any] | None = None):
             )
             self.noise = layers.GaussianNoise(float(cfg["input_noise"]))
             self.feature_dropout = layers.Dropout(float(cfg["feature_dropout"]))
-            self.blocks = []
+            # Keras weight saving only follows layers held directly or in flat lists, so each
+            # sub-layer type gets its own list (a list of dicts silently left the blocks out of
+            # .weights.h5). Creation order and layer names match the original list-of-dicts version.
+            self.block_norm1, self.block_attention, self.block_drop1 = [], [], []
+            self.block_norm2, self.block_ff1, self.block_ff2, self.block_drop2 = [], [], [], []
             for index in range(int(cfg["num_layers"])):
-                self.blocks.append({
-                    "norm_1": layers.LayerNormalization(epsilon=1e-6, name=f"block{index}_norm1"),
-                    "attention": layers.MultiHeadAttention(
-                        num_heads=int(cfg["num_heads"]),
-                        key_dim=d_model // int(cfg["num_heads"]),
-                        dropout=float(cfg["dropout"]),
-                        name=f"block{index}_attention",
-                    ),
-                    "drop_1": layers.Dropout(float(cfg["dropout"])),
-                    "norm_2": layers.LayerNormalization(epsilon=1e-6, name=f"block{index}_norm2"),
-                    "ff_1": layers.Dense(int(cfg["ff_dim"]), activation="gelu", name=f"block{index}_ff1"),
-                    "ff_2": layers.Dense(d_model, name=f"block{index}_ff2"),
-                    "drop_2": layers.Dropout(float(cfg["dropout"])),
-                })
+                self.block_norm1.append(layers.LayerNormalization(epsilon=1e-6, name=f"block{index}_norm1"))
+                self.block_attention.append(layers.MultiHeadAttention(
+                    num_heads=int(cfg["num_heads"]),
+                    key_dim=d_model // int(cfg["num_heads"]),
+                    dropout=float(cfg["dropout"]),
+                    name=f"block{index}_attention",
+                ))
+                self.block_drop1.append(layers.Dropout(float(cfg["dropout"])))
+                self.block_norm2.append(layers.LayerNormalization(epsilon=1e-6, name=f"block{index}_norm2"))
+                self.block_ff1.append(layers.Dense(int(cfg["ff_dim"]), activation="gelu", name=f"block{index}_ff1"))
+                self.block_ff2.append(layers.Dense(d_model, name=f"block{index}_ff2"))
+                self.block_drop2.append(layers.Dropout(float(cfg["dropout"])))
             self.final_norm = layers.LayerNormalization(epsilon=1e-6, name="final_norm")
 
         def build(self, input_shape: Any) -> None:
@@ -125,13 +127,13 @@ def build_model(config: dict[str, Any] | None = None):
             )
             mask = ops.logical_and(ops.expand_dims(valid, 1), ops.expand_dims(valid, 2))
             x = tokens
-            for block in self.blocks:
-                y = block["norm_1"](x)
-                y = block["attention"](y, y, attention_mask=mask, training=training)
-                x = x + block["drop_1"](y, training=training)
-                y = block["norm_2"](x)
-                y = block["ff_2"](block["ff_1"](y))
-                x = x + block["drop_2"](y, training=training)
+            for index in range(len(self.block_attention)):
+                y = self.block_norm1[index](x)
+                y = self.block_attention[index](y, y, attention_mask=mask, training=training)
+                x = x + self.block_drop1[index](y, training=training)
+                y = self.block_norm2[index](x)
+                y = self.block_ff2[index](self.block_ff1[index](y))
+                x = x + self.block_drop2[index](y, training=training)
             return self.final_norm(x)[:, 0, :]
 
         def get_config(self) -> dict[str, Any]:
