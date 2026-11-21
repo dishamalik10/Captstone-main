@@ -206,7 +206,6 @@ def explain_recommendations(
                     rec.get("items", []), owned_wardrobe, occasion=occasion,
                     temperature=temperature, condition=condition,
                     preferences=preferences,
-                    selection_signals=rec.get("component_scores", {}),
                 )
                 if (
                     _has_unverified_claim(

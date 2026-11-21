@@ -161,3 +161,53 @@ def test_blind_human_evaluation_sheet_separates_response_key(tmp_path):
     assert key['A'] in {'scratch', 'deterministic_baseline'}
     assert key['B'] in {'scratch', 'deterministic_baseline'}
     assert key['A'] != key['B']
+
+
+def test_recommend_format_training_row_becomes_backend_explain_contract():
+    import json
+
+    from ml.explain_prompt import CATEGORY, build_request, convert_training_row
+
+    owned = [
+        {"item_id": "top_014", "name": "cream linen shirt", "type": "top", "color": "cream"},
+        {"item_id": "bottom_022", "name": "navy trousers", "type": "bottom", "color": "navy"},
+        {"item_id": "shoe_008", "name": "brown loafers", "type": "shoes", "color": "brown"},
+        {"item_id": "bag_003", "name": "tan tote", "type": "bag"},
+    ]
+    row = {
+        "id": 7, "category": CATEGORY,
+        "input": json.dumps({"occasion": "office", "weather": "mild", "wardrobe": owned}),
+        "output": json.dumps({
+            "outfit": [{"item_id": "top_014"}, {"item_id": "bottom_022"}, {"item_id": "shoe_008"}],
+            "rationale": "Cream and navy keep the look calm.",
+        }),
+    }
+    converted = convert_training_row(row)
+    assert converted is not None and converted["category"] == CATEGORY
+    request = json.loads(converted["input"])
+    assert "available_wardrobe" not in request and "wardrobe" not in request
+    assert [item["category"] for item in request["selected_outfit"]] == ["Top", "Bottom", "Footwear"]
+
+    backend_items = [
+        {"item_id": "top_014", "category": "Top", "subcategory": "cream linen shirt", "color_name": "cream"},
+        {"item_id": "bottom_022", "category": "Bottom", "subcategory": "navy trousers", "color_name": "navy"},
+        {"item_id": "shoe_008", "category": "Footwear", "subcategory": "brown loafers", "color_name": "brown"},
+    ]
+    # The training target passes the exact validator the backend applies to model output.
+    assert validate_explanation_json(converted["output"], backend_items, backend_items) == (
+        "Cream and navy keep the look calm."
+    )
+    # Same outfit through the backend path yields the same serialized request shape.
+    backend_request = json.loads(build_request(backend_items, occasion="office", weather="mild"))
+    assert backend_request == request
+
+
+def test_rows_without_a_usable_outfit_or_rationale_are_not_converted():
+    from ml.explain_prompt import convert_training_row
+
+    assert convert_training_row({"input": "{}", "output": '{"rationale": "x"}'}) is None
+    assert convert_training_row({"input": "not json", "output": "plain text answer"}) is None
+    assert convert_training_row({
+        "input": '{"wardrobe": []}',
+        "output": '{"outfit": [{"item_id": "ghost"}], "rationale": "x"}',
+    }) is None

@@ -142,6 +142,7 @@ def test_stylist_llm_choice_becomes_first_recommendation(monkeypatch):
     assert "cloth_" not in fake.calls[0]["prompt"]  # the LLM never sees item IDs
     step = next(step for step in trace["agents"] if step["agent"] == "stylist_llm_agent")
     assert step["chosen_option"] == 3 and step["may_add_or_change_items"] is False
+    assert step["may_change_rank"] is True and step["changed_rank"] is True
 
 
 def test_invalid_stylist_answer_keeps_ranker_order(monkeypatch):
@@ -204,6 +205,7 @@ def test_notebooks_embed_the_exact_shared_model_code():
         ("training/AURA_Outfit_Compatibility_Polyvore_Colab.ipynb", "ml/outfit_compat.py"),
         ("training/AURA_Stylist_LLM_LoRA_Colab.ipynb", "ml/stylist_prompt.py"),
         ("training/AURA_Stylist_LLM_LoRA_Colab.ipynb", "ml/outfit_compat.py"),
+        ("training/AURA_Scratch_Fashion_LM_Colab.ipynb", "ml/explain_prompt.py"),
     ):
         cells = json.loads((root / notebook).read_text("utf-8"))["cells"]
         sources = ["".join(cell["source"]) for cell in cells if cell["cell_type"] == "code"]
@@ -289,3 +291,39 @@ def test_rainy_weather_with_unrecorded_fabric_does_not_crash():
     _seed_wardrobe(user_id)
     recommendations, _ = recommend(user_id, "meeting", 18.0, "Rain", 3)
     assert recommendations
+
+
+def _stylist_settings(monkeypatch, tmp_path, *, stylist: bool, base: bool, enabled=True, chat=True):
+    import types
+
+    stylist_path, base_path = tmp_path / "stylist.gguf", tmp_path / "base.gguf"
+    for path, present in ((stylist_path, stylist), (base_path, base)):
+        path.write_bytes(b"x") if present else path.unlink(missing_ok=True)
+    monkeypatch.setattr(stylist_selector, "settings", types.SimpleNamespace(
+        stylist_llm_model_path=stylist_path, llm_model_path=base_path,
+        stylist_llm_enabled=enabled, chat_use_stylist=chat,
+    ))
+    monkeypatch.setattr(stylist_selector, "_stylist_llm", None)
+
+
+def test_base_chat_model_never_reorders_outfits(monkeypatch, tmp_path):
+    _stylist_settings(monkeypatch, tmp_path, stylist=False, base=True)
+    assert stylist_selector._llm() is None
+    assert stylist_selector.model_source() == "unavailable"
+    assert stylist_selector.choose([{"items": []}, {"items": []}], {}) is None
+
+
+def test_chat_uses_fine_tuned_stylist_when_installed_else_base(monkeypatch, tmp_path):
+    from services.local_llm import local_llm
+
+    _stylist_settings(monkeypatch, tmp_path, stylist=True, base=True)
+    stylist = stylist_selector.chat_llm()
+    assert stylist is not local_llm and stylist is stylist_selector._llm()  # one shared instance
+    assert stylist_selector.chat_model_source() == "fine_tuned_stylist"
+
+    _stylist_settings(monkeypatch, tmp_path, stylist=True, base=True, chat=False)
+    assert stylist_selector.chat_llm() is local_llm
+
+    _stylist_settings(monkeypatch, tmp_path, stylist=False, base=True)
+    assert stylist_selector.chat_llm() is local_llm
+    assert stylist_selector.chat_model_source() == "base_chat_model"

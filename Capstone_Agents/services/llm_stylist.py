@@ -4,10 +4,17 @@ import json
 import re
 from typing import Any
 
-from services.local_llm import generate_response
 from services.local_llm import LocalModelError
 from services.fashion_knowledge import retrieve_guidance
 from services.recommendation_explainer import _has_unlisted_garment, _has_unverified_claim
+
+
+
+def generate_response(prompt: str, **kwargs: Any) -> str:
+    """Chat generation on the fine-tuned stylist when installed, else the base chat model."""
+    from services.stylist_selector import chat_llm
+
+    return chat_llm().generate_response(prompt, **kwargs)
 
 
 def stylist_reply(*, message: str, user: dict[str, Any], wardrobe: list[dict[str, Any]],

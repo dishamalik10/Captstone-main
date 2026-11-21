@@ -1,7 +1,8 @@
 """Let the AURA stylist LLM choose among the top server-built outfit options.
 
-The ranker guarantees that every option is complete and made only of the
-user's available garments. The LLM sees those options (without database IDs)
+Only the fine-tuned stylist GGUF may do this; the untuned base chat model is
+never used to reorder outfits. The ranker guarantees that every option is
+complete and made only of the user's available garments. The LLM sees those options (without database IDs)
 plus occasion, weather, self-described body shape, height, skin tone and saved
 preferences, and answers with an option number and a reason. Anything invalid
 falls back to the ranker's order, so the LLM can improve the choice but can
@@ -35,20 +36,24 @@ _COLOR_WORDS = {
 }
 
 
-def _llm() -> LocalLLM | None:
-    """Prefer the fine-tuned stylist GGUF; otherwise reuse the chat model."""
+def _stylist_model() -> LocalLLM | None:
+    """The fine-tuned stylist GGUF, shared by outfit picking and chat; None if not installed."""
     global _stylist_llm
+    path = settings.stylist_llm_model_path
+    if not path.is_file():
+        return None
+    if path == settings.llm_model_path:
+        return local_llm
+    if _stylist_llm is None:
+        _stylist_llm = LocalLLM(path)
+    return _stylist_llm
+
+
+def _llm() -> LocalLLM | None:
+    """Model allowed to reorder outfits: the fine-tuned stylist only, never the base chat model."""
     if not settings.stylist_llm_enabled:
         return None
-    if settings.stylist_llm_model_path.is_file():
-        if settings.stylist_llm_model_path == settings.llm_model_path:
-            return local_llm
-        if _stylist_llm is None:
-            _stylist_llm = LocalLLM(settings.stylist_llm_model_path)
-        return _stylist_llm
-    if settings.llm_model_path.is_file():
-        return local_llm
-    return None
+    return _stylist_model()
 
 
 def model_source() -> str:
@@ -56,9 +61,20 @@ def model_source() -> str:
         return "disabled"
     if settings.stylist_llm_model_path.is_file():
         return "fine_tuned_stylist"
-    if settings.llm_model_path.is_file():
-        return "base_chat_model"
     return "unavailable"
+
+
+def chat_llm() -> LocalLLM:
+    """Chat uses the fine-tuned stylist when installed and allowed, else the base chat model."""
+    if settings.chat_use_stylist:
+        stylist = _stylist_model()
+        if stylist is not None:
+            return stylist
+    return local_llm
+
+
+def chat_model_source() -> str:
+    return "fine_tuned_stylist" if chat_llm() is not local_llm else "base_chat_model"
 
 
 def load_user_context(user_id: str) -> dict[str, Any]:

@@ -11,6 +11,7 @@ import threading
 from typing import Any
 
 from settings import settings
+from ml.explain_prompt import CATEGORY, build_request, make_prompt
 from services.fashion_contract import validate_explanation_json
 
 LOGGER = logging.getLogger(__name__)
@@ -88,9 +89,13 @@ def explain_outfit(
     temperature: float,
     condition: str,
     preferences: dict[str, Any] | None = None,
-    selection_signals: dict[str, Any] | None = None,
 ) -> str:
-    """Generate and validate JSON for an already selected outfit."""
+    """Generate and validate JSON for an already selected outfit.
+
+    The prompt carries only the selected garments and request context, in the
+    exact format the model was trained on (``ml/explain_prompt.py``). The full
+    wardrobe is used only to validate the answer.
+    """
     if not selected_items:
         raise ValueError("Selected outfit is empty")
     selected_ids = [str(item["item_id"]) for item in selected_items]
@@ -99,42 +104,19 @@ def explain_outfit(
         selected_items, wardrobe,
     )
     load_model()
-    selected = [
-        {key: item.get(key) for key in (
-            "item_id", "category", "subcategory", "color_name", "pattern", "fabric", "fit", "texture"
-        )}
-        for item in selected_items
-    ]
-    available = [
-        {key: item.get(key) for key in ("item_id", "category", "subcategory", "color_name")}
-        for item in wardrobe if item.get("available", True)
-    ]
-    request = {
-        "selected_outfit": selected,
-        "available_wardrobe": available,
-        "occasion": occasion,
-        "weather": {"temperature_c": temperature, "condition": condition},
-        "saved_preferences": {
-            key: (preferences or {}).get(key)
-            for key in ("preferred_colors", "avoided_colors", "preferred_styles", "disliked_styles", "fit_preference")
-        },
-        "selection_signals": selection_signals or {},
-        "task": (
-            "Explain why the selected outfit works. Use only recorded item attributes and context. "
-            "Do not add or remove clothing. Return exactly JSON with item_ids copied in the same order "
-            "and explanation as a concise string."
-        ),
-    }
-    prompt = (
-        "### Category: wardrobe_recommendation\n### User:\n"
-        + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
-        + "\n### Assistant:\n"
-    )
+    prompt = make_prompt(CATEGORY, build_request(
+        selected_items,
+        occasion=occasion,
+        weather={"temperature_c": temperature, "condition": condition},
+        preferences=preferences,
+    ))
     with _lock:
         assert _model is not None and _tokenizer is not None and _torch is not None and _device is not None
         input_limit = min(512, max(64, int(getattr(_model.config, "n_positions", 1024)) - 160))
-        # Selected outfit is serialized first to keep it intact when large wardrobes are truncated.
-        inputs = _tokenizer(prompt, return_tensors="pt", truncation=True, max_length=input_limit)
+        inputs = _tokenizer(prompt, return_tensors="pt")
+        if inputs["input_ids"].shape[1] > input_limit:
+            # Truncating would cut the "### Assistant:" marker; the caller keeps the rule explanation.
+            raise ValueError("Outfit prompt exceeds the scratch model context")
         inputs = {key: value.to(_device) for key, value in inputs.items()}
         with _torch.inference_mode():
             output = _model.generate(

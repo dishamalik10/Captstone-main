@@ -152,13 +152,14 @@ The removed avatar/virtual try-on prototype is not part of the current system.
 4. Reject candidates that are incomplete, unowned, or clearly unsuitable.
 5. Calculate rule-based and learned component scores.
 6. Apply the SHIFT15M compatibility model when available.
-7. Rank candidates and return the top recommendations with explanations and an agent trace.
+7. Rank candidates. If the fine-tuned stylist LLM is installed, it may move one of the top five options to first place by option number; it never sees item IDs and cannot add or swap garments.
+8. Explain each outfit with the scratch-trained AURA GPT (exact item IDs required), falling back to evidence-grounded rule text, and return the recommendations with an agent trace that records whether the order changed.
 
 ### 7.3 AI Stylist Chat
 
 1. Load the user's profile, wardrobe summary, recent messages, and selected recommendation.
 2. Build a constrained stylist prompt.
-3. Use the configured in-process local GGUF model for generated stylist language.
+3. Generate the reply in-process with the fine-tuned stylist GGUF when it is installed, otherwise the base Qwen2.5-1.5B GGUF.
 4. Ensure any referenced recommendation remains tied to owned item IDs.
 5. Return a clear service error when local model weights/runtime are unavailable.
 
@@ -609,6 +610,30 @@ Recommended offline measures include:
 - Coverage: fraction of wardrobe items surfaced over time
 - Diversity and repetition rate
 - Ablation tests with compatibility, memory, weather, or trend features removed
+
+### Language-Model Evaluation
+
+Each language model is switched on only if it clears a bar fixed before its results were seen.
+
+| Model | Evaluation | Enable bar | Result |
+|---|---|---|---|
+| Scratch AURA GPT (4 layers, 256 hidden, 4 heads, 8k vocab, 5.24M params) | Held-out test split in the notebook (`final_test_evaluation.json`: perplexity, `explain_contract_rate`) and `scripts/evaluate_scenarios.py` (`full_pass_rate`: valid JSON with exact IDs, no unsupported claims, no unlisted garments) | `full_pass_rate` ≥ 0.70 and blind rating not worse than the rule explanation | *Pending: Colab run* |
+| Fine-tuned stylist (Qwen2.5-1.5B + LoRA) | `stylist_llm/evaluation.json`: accuracy at picking the real Polyvore outfit out of five on 300 held-out looks, vs random (20%), compatibility model alone and base Qwen zero-shot | Beats both base Qwen and compatibility-only; valid JSON ≥ 95% | *Pending: Colab run* |
+| Stylist as chat model | 20 fixed chat prompts answered by the stylist and base Qwen; wardrobe-filter pass rate and blind pairwise rating | Not clearly worse than base Qwen and not failing filters more often | *Pending* |
+
+The scenario suite has only eight hand-authored cases, so its pass rate is reported alongside the notebook's larger held-out test rate rather than on its own.
+
+### Fine-Tuning Attempt on Local Hardware (negative result)
+
+Before moving to Colab, LoRA fine-tuning of Qwen2.5-1.5B-Instruct (4-bit MLX build) was attempted on the development Mac (Apple Silicon, 8 GB unified memory) with `mlx-lm` (`training/run_mlx_lora.py`, configs in `training/mlx_lora_*.yaml`, logs in `training/results/mlx_training_trial_summary.json`).
+
+| Attempt | Learning rate | Outcome |
+|---|---|---|
+| Base config | 2e-5 | Validation loss 3.291 at step 1; training loss 3.583 at step 5, **NaN from step 10**. No adapter saved. |
+| Pilot | 1e-6 | Same divergence to **NaN by step 10**: lowering the learning rate did not help. No adapter saved. |
+| Pilot without gradient checkpointing, 8 tuned layers | 1e-6 | Stable for 20 steps (validation loss 3.291 → 3.234). Far too short to count as a fine-tune. |
+
+Because divergence persisted at a 20× lower learning rate and disappeared only with gradient checkpointing disabled and fewer tuned layers, the likely cause is numerical instability in the 4-bit, memory-constrained training path rather than the data or learning rate. Fine-tuning was therefore moved to a Colab T4 GPU with LoRA (r=16) on fp16 base weights instead of a 4-bit base (`AURA_Stylist_LLM_LoRA_Colab.ipynb`), and the result was quantised to GGUF only after training. The local trial files are kept in the repository as evidence.
 
 ### Human Evaluation
 

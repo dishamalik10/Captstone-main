@@ -82,8 +82,9 @@ class Settings:
     )
     # Share of the final score given to the item-level compatibility model when installed.
     outfit_compat_weight: float = float(os.getenv("AURA_OUTFIT_COMPAT_WEIGHT", "0.40"))
-    # Stylist LLM that picks among the top outfit options (fine-tuned GGUF from
-    # training/AURA_Stylist_LLM_LoRA_Colab.ipynb). Falls back to the chat GGUF.
+    # Fine-tuned stylist GGUF from training/AURA_Stylist_LLM_LoRA_Colab.ipynb.
+    # Only this fine-tuned model may reorder the ranker's top options; the base
+    # chat GGUF never does. Set ENABLED=0 if it fails its evaluation bar.
     stylist_llm_model_path: Path = Path(
         os.getenv(
             "AURA_STYLIST_LLM_PATH",
@@ -91,6 +92,9 @@ class Settings:
         )
     )
     stylist_llm_enabled: bool = os.getenv("AURA_STYLIST_LLM_ENABLED", "1") not in {"0", "false", "False"}
+    # Serve chat from the fine-tuned stylist GGUF when it is installed; otherwise
+    # (or with 0) chat uses the base chat GGUF at AURA_LLM_MODEL_PATH.
+    chat_use_stylist: bool = os.getenv("AURA_CHAT_USE_STYLIST", "1") not in {"0", "false", "False"}
     max_upload_bytes: int = int(os.getenv("AURA_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
     allowed_origins: tuple[str, ...] = tuple(
         value.strip()

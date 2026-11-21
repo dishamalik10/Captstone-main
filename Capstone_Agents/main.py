@@ -89,15 +89,19 @@ def current_auth(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_database()
-    if settings.llm_model_path.is_file():
+    # Load only the model that serves chat (the fine-tuned stylist when installed),
+    # so an 8 GB host does not hold two 1 GB GGUFs at startup.
+    chat_model = stylist_selector.chat_llm()
+    if chat_model is not local_llm or settings.llm_model_path.is_file():
         try:
-            local_llm.load_model()
+            chat_model.load_model()
         except Exception:
             import logging
             logging.getLogger(__name__).exception("Local LLM startup load failed")
     try:
         yield
     finally:
+        chat_model.unload_model()
         local_llm.unload_model()
         unload_fashion_model()
 
@@ -165,6 +169,7 @@ def health() -> dict[str, object]:
         "fashion_lm": fashion_lm_model_info(),
         "outfit_compatibility": outfit_compat_service.status()["available"],
         "stylist_llm": stylist_selector.model_source(),
+        "chat_llm": stylist_selector.chat_model_source(),
     }
 
 
@@ -480,8 +485,8 @@ def outfit_compatibility_status() -> dict:
 
 @app.get("/models/stylist/status")
 def stylist_status() -> dict:
-    """Which LLM (fine-tuned stylist or base chat model) chooses among top outfits."""
-    return {"source": stylist_selector.model_source()}
+    """Whether the fine-tuned stylist may reorder top outfits, and which model serves chat."""
+    return {"source": stylist_selector.model_source(), "chat": stylist_selector.chat_model_source()}
 
 
 @app.get("/models/fashion-language/status")

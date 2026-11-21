@@ -140,8 +140,7 @@ def main() -> None:
                         temperature=case["temperature_c"],
                         condition="Clear",
                         preferences=get_preferences(user_id),
-                        selection_signals=rec.get("component_scores", {}),
-                    )
+                        )
                     validate_owned_outfit(
                         rec["item_ids"], wardrobe, expected_ids=rec["item_ids"]
                     )
@@ -267,6 +266,19 @@ def main() -> None:
                 / max(1, sum(c["scratch_explanation"]["valid_structured_response"] for c in cases))
                 if scratch_status.get("ready") else None
             ),
+            # Q6 enable bar: an explanation passes only if it is valid JSON with the exact
+            # item IDs AND free of unsupported claims AND free of unlisted garments.
+            "full_pass_rate": (
+                sum(
+                    c["scratch_explanation"]["valid_structured_response"]
+                    and not c["scratch_explanation"]["unsupported_claim"]
+                    and not c["scratch_explanation"]["unlisted_garment"]
+                    for c in cases
+                )
+                / max(1, sum(c["scratch_explanation"]["attempted"] for c in cases))
+                if scratch_status.get("ready") else None
+            ),
+            "enable_bar_full_pass_rate": 0.70,
             "human_fashion_quality_rated": False,
             "interpretation": "This compares model-written explanations with the deterministic explanation for the same rule-selected outfit. It does not let the LM select or rank outfits, and automatic grounding checks are not a fashion-quality score.",
         },

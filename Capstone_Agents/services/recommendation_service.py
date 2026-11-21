@@ -655,6 +655,8 @@ def recommend(
             options_considered=len(options),
             chosen_option=None if stylist_choice is None else stylist_choice["index"] + 1,
             may_add_or_change_items=False,
+            may_change_rank=True,
+            changed_rank=stylist_choice is not None and stylist_choice["index"] != 0,
         ))
     selected = pool[:limit]
 
