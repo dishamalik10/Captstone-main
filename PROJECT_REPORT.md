@@ -6,12 +6,14 @@
 
 AURA is a full-stack, fashion-aware wardrobe recommendation system. It allows a user to upload photographs of clothes they already own, automatically analyses those garments, stores them in a digital wardrobe, and recommends complete outfits for an occasion and weather context. Unlike a shopping-only recommender, AURA prioritises the user's owned garments and learns from their saves, likes, skips, ratings, and wear history.
 
-The system combines two trained neural models with an inspectable agentic recommendation pipeline:
+The system combines trained models, an online-learning ranker and local language models in an inspectable agentic pipeline:
 
-1. An EfficientNetV2B0 multi-task CNN classifies uploaded garment images.
-2. A SHIFT15M-based compatibility model estimates whether garment combinations are stylistically compatible.
-3. A bounded agentic ranker combines compatibility with colour harmony, occasion suitability, weather, preferences, feedback, novelty, and current fashion trends.
-4. A grounded AI stylist explains the recommendations conversationally without replacing the deterministic wardrobe ownership and outfit-completeness checks.
+1. An EfficientNetV2B0 multi-task CNN classifies uploaded garment images and produces a 512-d visual embedding.
+2. An outfit-compatibility transformer trained on Polyvore Outfits scores how well an outfit's pieces go together from those embeddings (a SHIFT15M category-pair model remains as a fallback).
+3. A bounded agentic ranker builds only complete outfits from owned garments and scores them with colour, occasion, weather, preference, feedback, novelty and trend signals plus learned compatibility.
+4. A per-user contextual bandit (Thompson sampling) personalises that ranking online from each user's likes, dislikes, saves, wears and skips.
+5. A fine-tuned stylist LLM (Qwen2.5-1.5B + LoRA) chooses the best of the top five outfits, on the Stylist screen and in chat.
+6. A local instruction model (Qwen2.5-3B) holds the chat conversation, grounded in the user's wardrobe and the chosen outfit, without replacing the ownership and completeness checks.
 
 AURA is best described as a fashion-aware, personalised recommendation prototype. Its scores are ranking signals, not calibrated probabilities or guarantees of human stylist agreement.
 
@@ -58,15 +60,18 @@ flowchart TD
 
     R --> CG[Candidate Generator]
     R --> FC[Fashion Critic]
-    R --> CM[SHIFT15M Compatibility Model]
-    R --> PR[Personalised Ranker]
+    R --> OC[Outfit-Compatibility Transformer]
+    R --> CM[SHIFT15M Compatibility Fallback]
+    R --> BD[Contextual Bandit per User]
+    R --> SL[Fine-tuned Stylist LLM]
     R --> WX[OpenWeather Context]
     R --> TR[Grounded Trend Retrieval]
     R --> DB
 
-    C --> LLM[Local Qwen GGUF via llama.cpp]
-    C --> DB
     C --> R
+    C --> LLM[Qwen2.5-3B Chat Model via llama.cpp]
+    C --> DB
+    F -->|like / dislike / save / wear| BD
 ```
 
 ### Architectural Layers
@@ -77,7 +82,7 @@ flowchart TD
 | API | FastAPI endpoints, validation, authentication, and static image serving |
 | Domain services | Wardrobe, recommendations, chat, trends, weather, style analysis, and purchase impact |
 | Agentic orchestration | Bounded sequence of retrieval, generation, critique, scoring, memory, and ranking |
-| Machine learning | H&M garment CNN and SHIFT15M compatibility classifier |
+| Machine learning | H&M garment CNN, Polyvore outfit-compatibility transformer, SHIFT15M fallback, per-user contextual bandit, fine-tuned stylist LLM, local chat LLM |
 | Persistence | SQLite records, ranked recommendation runs, and local uploaded image/model artifacts |
 | External intelligence | Optional OpenWeather; local fashion trend cache |
 
@@ -108,7 +113,8 @@ flowchart TD
 - JWT-based authentication and password hashing
 - LangGraph-style agent orchestration concepts
 - OpenWeather integration
-- Local stylist generation through llama.cpp and a configured GGUF model
+- Local language models through llama.cpp: fine-tuned stylist GGUF (outfit choice) and Qwen2.5-3B GGUF (chat)
+- NumPy Bayesian linear model for the per-user contextual bandit
 - Locally cached, curated trend context (no hosted LLM/search generation)
 - Explicit recommendation impressions and validated user-feedback evaluation
 - Pytest for backend tests
@@ -122,9 +128,9 @@ flowchart TD
 5. Manual category correction when the CNN prediction is wrong.
 6. Wardrobe search, filtering, viewing, and deletion.
 7. Occasion- and weather-aware outfit recommendations.
-8. Recommendation cards showing the actual uploaded garment images.
-9. Save, like, skip, rate, and “wear today” feedback.
-10. AI stylist chat grounded in the user's wardrobe and recent conversation.
+8. Recommendation cards showing every uploaded garment of the outfit together.
+9. Save, like, skip, rate, and “wear today” feedback on the Stylist screen, and Like / Not for me / Wore it under chat outfits; every reaction immediately updates the user's personal ranking model.
+10. AI stylist chat that recommends outfits for an occasion from the user's wardrobe, shows them, and answers styling questions.
 11. Separate chat sessions, recent context, and persistent chat history.
 12. Style analysis and wardrobe-gap detection.
 13. Purchase-impact analysis for deciding whether a new item adds value.
@@ -150,18 +156,21 @@ The removed avatar/virtual try-on prototype is not part of the current system.
 2. Generate structurally complete outfit candidates.
 3. Retrieve optional weather, trend, profile, feedback, and wear-history context.
 4. Reject candidates that are incomplete, unowned, or clearly unsuitable.
-5. Calculate rule-based and learned component scores.
-6. Apply the SHIFT15M compatibility model when available.
-7. Rank candidates. If the fine-tuned stylist LLM is installed, it may move one of the top five options to first place by option number; it never sees item IDs and cannot add or swap garments.
-8. Explain each outfit with the scratch-trained AURA GPT (exact item IDs required), falling back to evidence-grounded rule text, and return the recommendations with an agent trace that records whether the order changed.
+5. Calculate rule-based component scores.
+6. Apply the outfit-compatibility transformer to the pieces' CNN embeddings (SHIFT15M category-pair model as fallback).
+7. Rank candidates: by the hand-tuned prior for a user without feedback, otherwise by a Thompson sample from that user's contextual bandit (Section 12.11), followed by a diversity rerank.
+8. If the fine-tuned stylist LLM is installed, it may move one of the top five options to first place by option number; it never sees item IDs and cannot add or swap garments.
+9. Explain each outfit (the stylist's grounded reason for #1, the scratch AURA GPT when its weights are installed, otherwise evidence-grounded rule text) and return the recommendations with an agent trace recording the ranking method and whether the order changed.
+10. When the user reacts, store the feedback and update their bandit posterior.
 
 ### 7.3 AI Stylist Chat
 
-1. Load the user's profile, wardrobe summary, recent messages, and selected recommendation.
-2. Build a constrained stylist prompt.
-3. Generate the reply in-process with the fine-tuned stylist GGUF when it is installed, otherwise the base Qwen2.5-1.5B GGUF.
-4. Ensure any referenced recommendation remains tied to owned item IDs.
-5. Return a clear service error when local model weights/runtime are unavailable.
+1. Detect whether the message asks for an outfit and, if so, the occasion (English keywords such as date, meeting, office, travel, party, wedding; otherwise casual).
+2. Run the recommendation pipeline of Section 7.2 (including the user's bandit), drop outfits already shown in this chat session while fresh ones remain, and keep the top five.
+3. The fine-tuned stylist picks one of the five (fallback: the chat model, then the ranker's first).
+4. Qwen2.5-3B writes the reply. Its system prompt holds the full owned wardrobe, the chosen outfit, the last eight turns and retrieved heuristic notes, and instructs it to recommend that outfit, suggest unowned finishing touches only as "if you have…", and say it has no live trend data. A reply that pairs a dress with separates is regenerated once.
+5. Return the reply with the outfit's item photos and record it; the user's reactions to it update their bandit.
+6. Return a clear service error when local model weights/runtime are unavailable.
 
 ## 8. Garment Classification CNN
 
@@ -259,6 +268,19 @@ The temporal split is more realistic than a random split because it checks wheth
 
 These results show useful ranking signal, but they do not prove human-level styling ability.
 
+## 9a. Outfit-Compatibility Transformer (Polyvore)
+
+The SHIFT15M model only sees garment categories. The main compatibility signal is now a transformer over the garments' own visual embeddings: each piece is encoded by the AURA CNN (`fashion_feature_normalization`, 512-d), and a 4-layer, 4-head transformer (model dimension 256, up to 16 items) outputs the probability that the set forms a compatible outfit. It was trained on the Polyvore Outfits non-disjoint training split (53,306 outfits) in `training/AURA_Outfit_Compatibility_Polyvore_Colab.ipynb`.
+
+| Split | Metric | Transformer | Cosine-similarity baseline | Random |
+|---|---|---:|---:|---:|
+| Non-disjoint test | Compatibility AUC | **0.865** | 0.657 | 0.5 |
+| Non-disjoint test | Fill-in-the-blank accuracy | **0.520** | 0.409 | 0.25 |
+| Disjoint test | Compatibility AUC | **0.815** | 0.652 | 0.5 |
+| Disjoint test | Fill-in-the-blank accuracy | **0.479** | 0.395 | 0.25 |
+
+Its score carries 40% of the prior ranking score (Section 12.10). One observed limitation: it scores single-garment outfits (a dress alone) much lower than multi-piece outfits, plausibly because Polyvore outfits usually contain several items, which is one reason the hand-tuned prior repeated the same top-and-bottom outfit across occasions and motivated the personalised layer.
+
 ## 10. Agentic Recommendation Architecture
 
 AURA uses specialised stages that act like bounded agents. They are orchestrated rather than independently trained language agents.
@@ -271,8 +293,10 @@ flowchart LR
     WC --> CR[Fashion Critic]
     CR --> CS[Compatibility Scorer]
     CS --> PM[Preference Memory]
-    PM --> RK[Personalised Ranker]
-    RK --> EX[Explanation]
+    PM --> RK[Contextual Bandit Ranker]
+    RK --> ST[Fine-tuned Stylist Pick]
+    ST --> EX[Explanation / Chat Reply]
+    EX -.feedback.-> RK
 ```
 
 ### Agent Responsibilities
@@ -283,10 +307,11 @@ flowchart LR
 | Candidate generator | Builds dresses or top-bottom combinations with optional layers/accessories |
 | Weather context | Adds temperature and weather-condition constraints |
 | Fashion critic | Rejects incomplete, unowned, or contextually weak candidates |
-| Compatibility scorer | Applies SHIFT15M pair compatibility |
+| Compatibility scorer | Applies the Polyvore outfit-compatibility transformer (SHIFT15M pair model as fallback) |
 | Preference memory | Learns attribute rewards from historical user actions |
-| Personalised ranker | Combines every signal into the final order |
-| Explanation | Produces human-readable reasoning grounded in selected item IDs |
+| Contextual bandit ranker | Orders candidates with a Thompson sample from the user's posterior (hand-tuned prior before any feedback), then reranks for diversity |
+| Stylist pick | Fine-tuned stylist LLM may promote one of the top five to #1 |
+| Explanation / chat | Grounded reason for each outfit; in chat, Qwen2.5-3B writes the reply around the chosen outfit |
 
 Execution is intentionally bounded. Candidate counts are capped, and the critic permits at most one controlled revision round. This avoids open-ended loops and makes the result easier to debug and defend in a capstone evaluation.
 
@@ -314,10 +339,14 @@ All component values are normalised to the `0–100` range.
 
 | Palette structure | Score |
 |---|---:|
+| Any colour unknown / unrecognised | 50 |
 | All neutral colours | 92 |
 | One non-neutral colour family | 90 |
-| Two colour families | 82 |
-| Three colour families | 68 |
+| Two families, approximately complementary on the colour wheel | 92 |
+| Two families, adjacent (analogous) | 87 |
+| Two families, other | 76 |
+| Three families, evenly spaced (triadic) | 84 |
+| Three families, other | 70 |
 | More than three colour families | 48 |
 
 This is an interpretable palette heuristic, not a universal law of colour theory.
@@ -484,34 +513,66 @@ Trend data is cached for 12 hours and receives a small final weight so unreliabl
 
 ### 12.9 Rule-Based Total `R`
 
+Three smaller signals are also scored 0–100: pattern coordination `Pt`, silhouette balance `Si` (top/bottom fit contrast) and fabric–weather fit `Fw`; each is 50 when the wardrobe record has no pattern, fit or fabric.
+
 ```text
-R = 0.18C
-  + 0.18O
-  + 0.15W
-  + 0.15P
-  + 0.10F
-  + 0.15LP
+R = 0.17C
+  + 0.17O
+  + 0.14W
+  + 0.14P
+  + 0.08F
+  + 0.13LP
   + 0.05N
-  + 0.04T
+  + 0.03T
+  + 0.03Pt + 0.03Si + 0.03Fw
 ```
 
-The weights sum to 1.00. Colour and occasion have the greatest individual weights, while live trends deliberately receive only 4%.
+The weights sum to 1.00. Colour and occasion have the greatest individual weights, while trends deliberately receive only 3%. These weights are hand-chosen; Section 12.11 describes how they become a learned, per-user policy.
 
 ### 12.10 Final Compatibility-Aware Score `S`
 
-Let `M` be the SHIFT15M compatibility score. When the model is available:
+Let `V` be the outfit-compatibility transformer's score (Section 9a). When it is available:
+
+```text
+S = round(0.60R + 0.40V)
+```
+
+Otherwise, with the SHIFT15M category-level score `M`:
 
 ```text
 S = round(0.88R + 0.12M)
 ```
 
-When it is unavailable:
+and `S = round(R)` when neither model is available. The fashion critic rejects candidates with an occasion or weather score below 45 (with one bounded revision round if nothing passes). `S` is the ranking for users without feedback and the prior of the personalised policy below; compatibility models cannot override wardrobe ownership, outfit completeness or weather safety.
+
+### 12.11 Personalised Ranking: Contextual Bandit
+
+Fixed weights cannot capture that one user prefers dark, dressy looks for dates while another prefers light, layered looks for the office. AURA therefore treats ranking as a **contextual bandit**, the reinforcement-learning setting used by most recommender systems.
+
+| RL element | In AURA |
+|---|---|
+| Context | Occasion, weather and each candidate outfit's features `x` |
+| Action | Which outfit to rank first |
+| Reward `r` | wear 1.0, save 0.9, like 0.85, rating `(rating−1)/4`, skip 0.35, dislike 0 |
+| Policy | Bayesian linear regression `r ≈ wᵀx`, Thompson sampling |
+
+**Features (53).** The 12 component scores above (including `V`), divided by 100; 8 style descriptors (dress present, outerwear present, dark / light / colourful / patterned share of pieces, piece count, footwear present) included once globally and once in the slot of the occasion group (formal, evening, casual, active), so tastes can differ by occasion; and a visual-taste feature
 
 ```text
-S = round(R)
+taste(x) = cos(e, μ⁺_g) − cos(e, μ⁻_g)
 ```
 
-The trained compatibility model therefore improves ranking but cannot override wardrobe ownership, outfit completeness, weather safety, or the user's preferences.
+where `e` is the mean CNN embedding of the outfit's pieces and `μ⁺_g`, `μ⁻_g` are the sums of embeddings of outfits the user liked / disliked in occasion group `g` (falling back to all occasions).
+
+**Prior.** The prior mean `w₀` reproduces `S/100` exactly: `0.6 ×` the rule weights for the rule signals and `0.4` for `V`, `0` for style and taste features. The prior precision is `40` on the 12 signal weights (trust the hand-tuned ranker) and `2` on personal features (learn taste quickly). A user with no feedback therefore sees exactly the original ranking.
+
+**Update and action selection.** With precision matrix `A` and vector `b` (initially `A₀ = diag(λ)`, `b₀ = A₀w₀`), each reaction to a shown outfit with features `x` updates
+
+```text
+A ← A + x xᵀ,      b ← b + r x,      μ = A⁻¹ b
+```
+
+and each ranking request samples `w̃ ~ N(μ, σ²·s²·A⁻¹)` with noise variance `σ² = 0.08` and exploration scale `s = 0.5`, then sorts candidates by `w̃ᵀx` before the diversity rerank. Sampling makes the policy occasionally try outfits it is uncertain about instead of repeating one look. Models are stored per user in the `bandit_models` table and never shared between users; the update takes milliseconds and needs no offline training step.
 
 ## 13. Style Analysis and Purchase Recommendation
 
@@ -552,6 +613,7 @@ The local SQLite database contains the main application entities:
 | `clothing_items` | Uploaded wardrobe items and predicted/corrected metadata |
 | `recommendations` | Generated outfit records and scores |
 | `feedback` | Likes, saves, wears, skips, dislikes, and ratings |
+| `bandit_models` | Each user's contextual-bandit posterior (precision matrix, vector, visual-taste memory) |
 | `sessions` | Application/authentication session information |
 | `chat_messages` | Persistent AI chat history |
 | `products`, `orders` | Supporting commerce-domain records inherited from the combined project |
@@ -570,7 +632,7 @@ The FastAPI backend provides endpoints for:
 - Garment image access
 - Outfit recommendation generation
 - Recommendation feedback and wear tracking
-- Compatibility-model status
+- Compatibility-model, stylist-model and personalisation status (`/models/personalisation/status` lists what the signed-in user's bandit has learned)
 - AI stylist chat and chat history
 - Weather context
 - Current trend retrieval
@@ -618,10 +680,25 @@ Each language model is switched on only if it clears a bar fixed before its resu
 | Model | Evaluation | Enable bar | Result |
 |---|---|---|---|
 | Scratch AURA GPT (4 layers, 256 hidden, 4 heads, 8k vocab, 5.24M params) | Held-out test split in the notebook (`final_test_evaluation.json`: perplexity, `explain_contract_rate`) and `scripts/evaluate_scenarios.py` (`full_pass_rate`: valid JSON with exact IDs, no unsupported claims, no unlisted garments) | `full_pass_rate` ≥ 0.70 and blind rating not worse than the rule explanation | *Pending: Colab run* |
-| Fine-tuned stylist (Qwen2.5-1.5B + LoRA) | `stylist_llm/evaluation.json`: accuracy at picking the real Polyvore outfit out of five on 300 held-out looks, vs random (20%), compatibility model alone and base Qwen zero-shot | Beats both base Qwen and compatibility-only; valid JSON ≥ 95% | *Pending: Colab run* |
-| Stylist as chat model | 20 fixed chat prompts answered by the stylist and base Qwen; wardrobe-filter pass rate and blind pairwise rating | Not clearly worse than base Qwen and not failing filters more often | *Pending* |
+| Fine-tuned stylist (Qwen2.5-1.5B + LoRA) | `model_artifacts/stylist_llm_evaluation.json`: accuracy at picking the real Polyvore outfit out of five on 300 held-out looks, vs random (20%), compatibility model alone and base Qwen zero-shot | Beats both base Qwen and compatibility-only; valid JSON ≥ 95% | **Passed:** 83.7% (visual 87.3%, season 84.1%, occasion 77.8%) vs compatibility-only 53.0%, base Qwen 39.0%, random 20%; valid JSON 100%; 0 avoided-colour violations. Enabled for outfit choice. |
+| Stylist as chat model | Fixed chat prompts on a real 6-item wardrobe, compared with base Qwen 1.5B and Qwen2.5-3B | Natural, grounded replies that recommend owned outfits | **Not adopted for chat.** Informal comparison (not a blind study): the stylist repeated its training phrasing ("it reads right for date") and once invented an unowned combination; Qwen2.5-3B gave more natural, occasion-aware replies. Chat replies therefore use Qwen2.5-3B (`AURA_CHAT_USE_STYLIST=0`) while the stylist still picks the chat outfit. |
 
-The scenario suite has only eight hand-authored cases, so its pass rate is reported alongside the notebook's larger held-out test rate rather than on its own.
+The scenario suite has only eight hand-authored cases, so its pass rate is reported alongside the notebook's larger held-out test rate rather than on its own. The scratch AURA GPT has not been run in Colab yet, so its weights are absent and the Stylist screen uses rule-based explanations for outfits other than the stylist's #1.
+
+### Personalised Ranking Evaluation (simulated users)
+
+No real feedback had been collected when the bandit was built, so it was evaluated the standard way for bandit recommenders, with simulated users whose hidden taste is known (`training/evaluate_bandit.py`, results in `model_artifacts/bandit_evaluation.json` and `bandit_learning_curve.svg`). Four tastes (bold evening, minimal light, layer lover, colour pop) × 15 users × 40 rounds; each user owns a synthetic 14-item wardrobe; each round has a random occasion; every outfit the wardrobe can make is built by AURA's real candidate generator and scored by its real rule functions (the compatibility score is a stand-in, since there are no images); the user likes the shown outfit with a probability given by their hidden taste.
+
+| Policy | P(like), first 5 rounds | P(like), last 10 rounds | Cumulative regret |
+|---|---:|---:|---:|
+| Hand-tuned ranker (fixed prior) | 0.558 | 0.563 | 9.01 |
+| Bandit, greedy (posterior mean) | 0.599 | 0.713 | 3.91 |
+| **Bandit, Thompson sampling (deployed)** | 0.540 | 0.696 | 5.11 |
+| Best possible (oracle) | 0.774 | 0.781 | 0 |
+
+Learning from feedback raises the chance that the top outfit is liked by about 13–15 percentage points over the fixed ranker within 40 reactions, for every persona (for example "minimal light": 0.07 → 0.25; "bold evening": 0.49 → 0.60). In this simulation the greedy policy is slightly better than Thompson sampling: the occasion already varies the context every round and the simulated tastes are linear in the bandit's own features, so exploration has little to discover. The exploration scale `s = 0.5` was selected on this same simulation (1.0 gave 0.671 and higher regret). These results validate the learning mechanism; they are not evidence of real-user satisfaction, which requires the feedback-based evaluation (`scripts/evaluate_feedback`) once users have reacted to recommendations.
+
+A functional check on a real account's 6-item wardrobe (on a copy of the database) showed the intended behaviour: after three rounds of liking the black dress and dark-red outfits and disliking the white-sweater outfit for a date, the top date outfit changed from white sweater + blue trousers to black dress + brown jacket, with the largest learned weight changes on evening light-colour share (−0.15), dark share (+0.10) and dress (+0.10).
 
 ### Fine-Tuning Attempt on Local Hardware (negative result)
 
@@ -656,20 +733,23 @@ AURA's novelty is not a single new neural architecture. Its contribution is the 
 2. Multi-task garment recognition and a separate learned compatibility model.
 3. A temporally evaluated compatibility dataset.
 4. Explicit, inspectable hybrid scoring rather than an unexplained LLM score.
-5. Short-term feedback and recency-decayed long-term preference memory.
-6. Bounded agentic planning and critique with an execution trace.
-7. Optional current-trend retrieval that cannot dominate safety and ownership rules.
-8. Wardrobe-gap and purchase-impact analysis for sustainable buying decisions.
+5. Short-term feedback, recency-decayed long-term preference memory, and a per-user contextual bandit whose prior is the interpretable hand-tuned ranker, so personalisation never starts from a worse policy.
+6. A fine-tuned stylist LLM that chooses among safe, owned options rather than generating outfits, evaluated against compatibility-only and base-model baselines.
+7. Bounded agentic planning and critique with an execution trace.
+8. Optional current-trend retrieval that cannot dominate safety and ownership rules.
+9. Wardrobe-gap and purchase-impact analysis for sustainable buying decisions.
 
 ## 20. Limitations
 
 - H&M classification data and the selected SHIFT15M period do not represent every culture, body type, season, brand, or current trend.
 - CNN labels can be wrong for cluttered backgrounds, unusual angles, layered garments, or categories with few examples.
 - Broad category marginalisation limits the precision of compatibility inference.
-- Hand-designed score weights have not yet been optimised through a large user study.
+- The bandit's prior weights are hand-designed, and the bandit has been validated only on simulated users; real-user gains are unmeasured until feedback is collected. Without item tags, fabric, fit or profile preferences, many rule signals are constant for a user, so early rankings rely mostly on colour, occasion keywords and the compatibility model.
+- The chat model (Qwen2.5-3B) is an open model used without fine-tuning; it occasionally mentions a piece that is not in the shown outfit. Chat occasion detection uses English keywords only, replies are in English, and the stylist picker does not see free-text wishes such as "bolder".
+- On the 8 GB development Mac, the 3B chat model and the 1 GB stylist together cause heavy swap use and 9–17 s chat replies.
 - “Fashion sense” remains subjective and context-dependent.
 - Skin tone and body/sizing preferences are user-provided contextual features, not accurate computer-vision measurements.
-- Live weather depends on optional OpenWeather access; core stylist language runs through local model files. The small local model may provide weaker responses than larger systems.
+- Live weather depends on optional OpenWeather access (chat currently assumes 25 °C and unknown conditions); core stylist language runs through local model files, and small local models may provide weaker responses than larger systems.
 - Local SQLite and file storage are suitable for a capstone but need migration for a multi-server production deployment.
 - A high recommendation score is not a probability that every user or stylist will approve the outfit.
 - The project does not currently provide a photorealistic virtual try-on or fit/drape simulation.
@@ -677,19 +757,20 @@ AURA's novelty is not a single new neural architecture. Its contribution is the 
 ## 21. Future Research and Development
 
 1. Collect expert pairwise outfit judgements and user-specific preference labels.
-2. Train a visual compatibility model on garment embeddings, not only category IDs.
+2. Collect real feedback and evaluate the bandit against the fixed ranker online (A/B or interleaving), then tune exploration on real data.
 3. Calibrate scores so that values have a measurable interpretation.
-4. Learn ranking weights using pairwise or listwise learning-to-rank.
-5. Add counterfactual explanations: “what single change improves this look?”
-6. Evaluate fairness across skin tones, gender expression, body types, and cultural dress.
-7. Use privacy-preserving or federated personalisation.
-8. Add continual trend adaptation with time-aware evaluation and drift monitoring.
-9. Run controlled ablation studies for every scoring signal.
-10. Migrate storage to PostgreSQL and object storage for production deployment.
+4. Learn a global prior for the bandit from pooled data (pairwise or listwise learning-to-rank on Polyvore and user feedback) instead of hand-chosen weights.
+5. Use collected like/dislike pairs to further align the stylist LLM with preference optimisation (DPO), and fine-tune the chat model on grounded stylist conversations.
+6. Add counterfactual explanations: “what single change improves this look?”
+7. Evaluate fairness across skin tones, gender expression, body types, and cultural dress.
+8. Use privacy-preserving or federated personalisation.
+9. Add continual trend adaptation with time-aware evaluation and drift monitoring.
+10. Run controlled ablation studies for every scoring signal.
+11. Migrate storage to PostgreSQL and object storage for production deployment.
 
 ## 22. Conclusion
 
-AURA demonstrates an end-to-end personalised wardrobe intelligence system. It recognises uploaded clothes, constructs complete outfits from items the user owns, combines learned compatibility with interpretable contextual scoring, adapts to behaviour over time, and explains its recommendations through a conversational interface.
+AURA demonstrates an end-to-end personalised wardrobe intelligence system. It recognises uploaded clothes, constructs complete outfits from items the user owns, combines learned visual compatibility with interpretable contextual scoring, personalises the ranking online with a contextual bandit that learns from every reaction, lets a fine-tuned stylist model choose among safe options, and discusses the result through a local conversational model.
 
-The current project provides genuine fashion-aware signals and is strong enough to defend as a capstone prototype. Its claims should remain precise: it is an inspectable hybrid recommender with trained vision and compatibility components, not a replacement for a professional human stylist. Further visual compatibility training, current expert-labelled data, user studies, calibration, and fairness evaluation would be required for production-level styling quality.
+The current project provides genuine fashion-aware signals and is strong enough to defend as a capstone prototype. Its claims should remain precise: it is an inspectable hybrid recommender with trained vision, compatibility and stylist components and an online-learning personalisation layer validated in simulation, not a replacement for a professional human stylist. Further visual compatibility training, current expert-labelled data, user studies, calibration, and fairness evaluation would be required for production-level styling quality.
 
