@@ -5,12 +5,74 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppImage } from '@/components/shared/AppImage';
 import type { ChatMessage } from '@/types';
 import { OutfitCard } from '@/components/outfits/OutfitCard';
+import { OutfitCollage } from '@/components/outfits/OutfitCollage';
 import { ProductCard } from '@/components/marketplace/ProductCard';
 import { cn } from '@/utils/helpers';
+import { useOutfitAI } from '@/hooks';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { hapticLight } from '@/utils/haptics';
+import type { Outfit } from '@/types';
 import { landing, motion, withAlpha } from '@/constants/theme';
 
 interface ChatBubbleProps {
   message: ChatMessage;
+}
+
+type Reaction = 'like' | 'dislike' | 'wear';
+
+const REACTIONS: { action: Reaction; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { action: 'like', icon: 'thumbs-up-outline', activeIcon: 'thumbs-up', label: 'Like' },
+  { action: 'dislike', icon: 'thumbs-down-outline', activeIcon: 'thumbs-down', label: 'Not for me' },
+  { action: 'wear', icon: 'checkmark-circle-outline', activeIcon: 'checkmark-circle', label: 'Wore it' },
+];
+
+/** Reactions on a suggested outfit; each one trains the user's personal ranking model. */
+function OutfitFeedback({ outfit }: { outfit: Outfit }) {
+  const { feedbackMutation } = useOutfitAI();
+  const palette = useThemeColors();
+  const [chosen, setChosen] = useState<Reaction | null>(null);
+
+  const react = (action: Reaction) => {
+    if (chosen || feedbackMutation.isPending) return;
+    hapticLight();
+    feedbackMutation.mutate({ outfit, action }, { onSuccess: () => setChosen(action) });
+  };
+
+  return (
+    <View className="mt-2">
+      <View className="flex-row gap-2">
+        {REACTIONS.map(({ action, icon, activeIcon, label }) => {
+          const active = chosen === action;
+          return (
+            <Pressable
+              key={action}
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: active, disabled: chosen !== null && !active }}
+              disabled={chosen !== null || feedbackMutation.isPending}
+              onPress={() => react(action)}
+              className={cn(
+                'flex-row items-center gap-1.5 rounded-full border px-3 py-1.5',
+                active ? 'border-accent bg-accent-soft' : 'border-border',
+                chosen !== null && !active && 'opacity-40',
+              )}
+            >
+              <Ionicons name={active ? activeIcon : icon} size={15} color={active ? palette.accent : palette.textSecondary} />
+              <Text className={cn('font-body-medium text-xs', active ? 'text-accent' : 'text-text-secondary')}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {chosen && (
+        <Text className="font-body text-xs text-text-tertiary mt-1.5 ml-1">
+          Thanks — I'll use this to tailor your next suggestions.
+        </Text>
+      )}
+      {feedbackMutation.isError && (
+        <Text className="font-body text-xs text-destructive mt-1.5 ml-1">Couldn't save that. Try again.</Text>
+      )}
+    </View>
+  );
 }
 
 /** The stylist's mark: a small monogram, never a stranger's photograph. */
@@ -47,6 +109,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             {message.outfit && (
               <View className="mt-3 min-w-[220px]">
                 <OutfitCard outfit={message.outfit} compact onPress={() => setImageOpen(true)} />
+                <OutfitFeedback outfit={message.outfit} />
               </View>
             )}
             {message.product && (
@@ -84,16 +147,14 @@ export function ChatBubble({ message }: ChatBubbleProps) {
             >
               <Ionicons name="close" size={22} color={landing.inkPaper} />
             </Pressable>
-            <AppImage
-              source={{ uri: message.outfit.imageUrl }}
-              className="w-full max-w-4xl h-[78%] rounded-md"
-              contentFit="contain"
-            />
+            <View className="w-full max-w-4xl h-[78%] rounded-md overflow-hidden">
+              <OutfitCollage outfit={message.outfit} contentFit="contain" />
+            </View>
             <Text className="font-display text-2xl mt-5 text-center" style={{ color: landing.inkPaper }}>
               {message.outfit.name}
             </Text>
             <Text className="font-body text-sm mt-1 text-center" style={{ color: landing.nightMuted }}>
-              Ranked by rule-based signals (uncalibrated)
+              {message.outfit.itemImages?.map((piece) => piece.label).join(' + ')}
             </Text>
           </View>
         </Modal>

@@ -483,6 +483,14 @@ def outfit_compatibility_status() -> dict:
     return outfit_compat_service.status()
 
 
+@app.get("/models/personalisation/status")
+def personalisation_status(auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    """What the signed-in user's contextual bandit has learned from their feedback."""
+    from services import bandit_ranker
+
+    return {"enabled": settings.bandit_enabled, **bandit_ranker.describe(auth[0]["id"])}
+
+
 @app.get("/models/stylist/status")
 def stylist_status() -> dict:
     """Whether the fine-tuned stylist may reorder top outfits, and which model serves chat."""

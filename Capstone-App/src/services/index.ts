@@ -107,6 +107,10 @@ function mapOutfit(
     imageUrl: recommendation.items[0]
       ? resolveApiUrl(recommendation.items[0].image_url)
       : '',
+    itemImages: recommendation.items.map((item) => ({
+      url: resolveApiUrl(item.image_url),
+      label: `${item.color_name} ${item.subcategory}`,
+    })),
     itemIds: recommendation.item_ids,
     explanation: recommendation.explanation,
     componentScores: recommendation.component_scores,
@@ -273,23 +277,31 @@ export const marketplaceService = {
   },
 };
 
+function resolveChatImages(message: ChatMessage): ChatMessage {
+  if (!message.outfit) return message;
+  return {
+    ...message,
+    outfit: {
+      ...message.outfit,
+      imageUrl: resolveApiUrl(message.outfit.imageUrl),
+      itemImages: message.outfit.itemImages?.map((piece) => ({ ...piece, url: resolveApiUrl(piece.url) })),
+    },
+  };
+}
+
 export const chatService = {
   async getMessages(sessionId: string) {
     const messages = (await api.get<ChatMessage[]>('/chat/messages', {
       params: { session_id: sessionId },
     })).data;
-    return messages.map((message) => message.outfit
-      ? { ...message, outfit: { ...message.outfit, imageUrl: resolveApiUrl(message.outfit.imageUrl) } }
-      : message);
+    return messages.map(resolveChatImages);
   },
   async sendMessage(content: string, sessionId: string) {
     const message = (await api.post<ChatMessage>('/chat/messages', {
       content,
       session_id: sessionId,
     })).data;
-    return message.outfit
-      ? { ...message, outfit: { ...message.outfit, imageUrl: resolveApiUrl(message.outfit.imageUrl) } }
-      : message;
+    return resolveChatImages(message);
   },
 };
 

@@ -9,7 +9,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from database import connection, ensure_user, row, rows, utc_now
+from database import connection, decode_json_fields, ensure_user, row, rows, utc_now
+from services.media_access import signed_media_url
 
 
 def _password_hash(password: str, salt: bytes | None = None) -> str:
@@ -241,6 +242,41 @@ def _recent_chat(user_id: str, session_id: str, limit: int = 16) -> list[dict[st
     ]
 
 
+def _choose_outfit(user_id: str, content: str, occasion: str, candidates: list[dict],
+                   history: list[dict[str, str]], shown: list[set[str]]) -> int:
+    """Pick the chat outfit with the fine-tuned AURA stylist; fall back to the chat model."""
+    from services import stylist_selector
+    from services.preference_service import get_preferences
+
+    choice = stylist_selector.choose(candidates, {
+        "occasion": occasion,
+        # Chat has no live weather; the stylist prompt treats a null temperature as unknown.
+        "weather": {"temperature_c": None, "condition": "Unknown"},
+        "preferences": get_preferences(user_id),
+        **stylist_selector.load_user_context(user_id),
+    })
+    if choice is not None:
+        return choice["index"]
+    from services.llm_stylist import pick_outfit
+
+    return pick_outfit(message=content, occasion=occasion, candidates=candidates,
+                       conversation_history=history, already_shown=shown)
+
+
+def _shown_outfits(user_id: str, session_id: str) -> list[set[str]]:
+    """Item-id sets of outfits already shown in this chat session."""
+    shown = []
+    for record in rows(
+        "SELECT metadata_json FROM chat_messages WHERE user_id=? AND session_id=? AND role='assistant' "
+        "ORDER BY created_at DESC LIMIT 20",
+        (user_id, session_id),
+    ):
+        outfit = json.loads(record.get("metadata_json") or "{}").get("outfit") or {}
+        if outfit.get("itemIds"):
+            shown.append(set(map(str, outfit["itemIds"])))
+    return shown
+
+
 def _offline_chat_reply(
     content: str,
     user: dict[str, Any],
@@ -270,15 +306,19 @@ def _offline_chat_reply(
 
 def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
     ensure_user(user_id)
-    items = rows(
-        "SELECT item_id,subcategory,color_name,category,style_tags,fabric,pattern,fit "
-        "FROM clothing_items WHERE user_id=? AND available=1 LIMIT 40",
-        (user_id,),
-    )
+    items = [
+        decode_json_fields(item)
+        for item in rows(
+            "SELECT item_id,subcategory,color_name,category,style_tags,fabric,pattern,fit "
+            "FROM clothing_items WHERE user_id=? AND available=1 LIMIT 40",
+            (user_id,),
+        )
+    ]
     history = _recent_chat(user_id, session_id)
     wants_outfit = _requests_outfit(content)
     outfit = None
     best = None
+    occasion = None
     if items and wants_outfit:
         text = content.lower()
         occasion = next(
@@ -294,31 +334,33 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
                 for item in items
                 if item["color_name"].lower() in text
             }
-            best = next(
-                (
-                    suggestion
-                    for suggestion in suggestions
-                    if requested_colors
-                    and any(
-                        item["color_name"].lower() in requested_colors
-                        for item in suggestion["items"]
-                    )
-                ),
-                suggestions[0],
-            )
+            candidates = [
+                suggestion for suggestion in suggestions
+                if requested_colors
+                and any(item["color_name"].lower() in requested_colors for item in suggestion["items"])
+            ] or suggestions
+            # Don't repeat an outfit already shown in this chat while fresh options remain.
+            shown = _shown_outfits(user_id, session_id)
+            candidates = [
+                candidate for candidate in candidates
+                if set(map(str, candidate["item_ids"])) not in shown
+            ] or candidates
+            candidates = candidates[:5]
+            best = candidates[_choose_outfit(user_id, content, occasion, candidates, history, shown)]
             selected = ", ".join(
                 f"{item['color_name']} {item['subcategory']}" for item in best["items"]
             )
-            reply = (
-                f"For {occasion}, wear your {selected}. "
-                f"Compatibility: {best['compatibility_score']}%. {best['explanation']}"
-            )
+            reply = f"For {occasion}, wear your {selected}."
             outfit = {
                 "id": best["recommendation_id"],
                 "name": f"{occasion.title()} Outfit",
                 "occasion": occasion,
                 "compatibilityScore": best["compatibility_score"],
                 "imageUrl": best["items"][0]["image_url"],
+                "itemImages": [
+                    {"url": item["image_url"], "label": f"{item['color_name']} {item['subcategory']}"}
+                    for item in best["items"]
+                ],
                 "itemIds": best["item_ids"],
                 "explanation": best["explanation"],
                 "componentScores": best["component_scores"],
@@ -339,6 +381,7 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
         conversation_history=history,
         wants_outfit=wants_outfit,
         fallback=reply,
+        occasion=occasion,
     )
     now = utc_now()
     user_message = f"msg_{uuid.uuid4().hex[:16]}"
@@ -358,6 +401,30 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
     return response
 
 
+def _refresh_outfit_images(user_id: str, outfit: dict) -> dict:
+    """Re-sign piece photos for a stored outfit: saved signed links expire after 15 minutes."""
+    item_ids = [str(item_id) for item_id in outfit.get("itemIds") or []]
+    if not item_ids:
+        return outfit
+    placeholders = ",".join("?" for _ in item_ids)
+    found = {
+        record["item_id"]: record
+        for record in rows(
+            f"SELECT item_id,color_name,subcategory,image_path FROM clothing_items "
+            f"WHERE user_id=? AND item_id IN ({placeholders})",
+            (user_id, *item_ids),
+        )
+    }
+    pieces = [
+        {"url": signed_media_url(user_id, found[item_id]["image_path"]),
+         "label": f"{found[item_id]['color_name']} {found[item_id]['subcategory']}"}
+        for item_id in item_ids if item_id in found
+    ]
+    if not pieces:
+        return outfit
+    return {**outfit, "imageUrl": pieces[0]["url"], "itemImages": pieces}
+
+
 def chat_history(user_id: str, session_id: str = "legacy") -> list[dict]:
     history = []
     for record in rows(
@@ -369,6 +436,8 @@ def chat_history(user_id: str, session_id: str = "legacy") -> list[dict]:
             "content": record["content"], "timestamp": record["created_at"],
         }
         metadata = json.loads(record.get("metadata_json") or "{}")
+        if metadata.get("outfit"):
+            metadata["outfit"] = _refresh_outfit_images(user_id, metadata["outfit"])
         message.update(metadata)
         history.append(message)
     return history

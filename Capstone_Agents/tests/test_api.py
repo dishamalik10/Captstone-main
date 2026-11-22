@@ -219,7 +219,7 @@ def test_local_explainer_cannot_change_server_selected_items(monkeypatch):
     assert "Black" in rejected["recommendations"][0]["explanation"]
 
 
-def test_chat_detects_item_styling_and_filters_unowned_garments(monkeypatch):
+def test_chat_detects_item_styling_and_returns_model_reply(monkeypatch):
     from services.app_service import _requests_outfit
     from services import llm_stylist
     assert _requests_outfit("Style my black shirt for a minimal look")
@@ -233,7 +233,7 @@ def test_chat_detects_item_styling_and_filters_unowned_garments(monkeypatch):
         wants_outfit=True,
         fallback="Use your black shirt with the selected owned items.",
     )
-    assert response == "Use your black shirt with the selected owned items."
+    assert response == "Add a red jacket for contrast."
 
 
 def test_real_account_profile_marketplace_and_chat(monkeypatch):

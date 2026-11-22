@@ -1,39 +1,73 @@
-# AURA: local language generation for a wardrobe stylist
+# AURA: a personalised, local AI wardrobe stylist
 
-AURA is an existing Expo / React Native application backed by FastAPI. Garment recognition uses the existing local Keras model. Outfit candidates are built and ranked by deterministic rules over the authenticated user's available wardrobe. Three local language models sit on top of that ranker, each with one job and a validated fallback. No hosted LLM inference API is used.
+AURA is an Expo / React Native app backed by FastAPI. It recognises uploaded garments with a trained CNN, builds complete outfits only from the user's own wardrobe, ranks them with a **per-user contextual bandit that learns from feedback**, lets a **fine-tuned stylist LLM** pick the best option, and chats about it through a local instruction model. Everything runs on the machine; no hosted LLM API is used.
 
 ## Architecture and model roles
 
 ```text
-Expo app → FastAPI → authenticated wardrobe + deterministic outfit ranking (top 5 options)
-                  ├→ fine-tuned stylist GGUF (Qwen2.5-1.5B + LoRA) → may move one option to #1; also serves chat
-                  ├→ scratch-trained AURA GPT (5.24M params) → validated explanation of each outfit
-                  ├→ base Qwen2.5-1.5B GGUF → fallback only (chat / explanations when the models above are absent)
-                  ├→ SQLite, auth, uploads
-                  └→ optional OpenWeather context (non-LLM API)
+Expo app → FastAPI
+  upload  → Garment CNN (EfficientNetV2B0, H&M) → category, colour, 512-d embedding
+  outfits → candidate generator (every dress / top+bottom, plus layers, shoes, accessories)
+          → scoring: rule signals + outfit-compatibility transformer (Polyvore)
+          → critic (owned, complete, occasion/weather sanity) → diversity rerank
+          → PERSONALISED RANKING: contextual bandit (Thompson sampling) per user
+          → fine-tuned stylist GGUF (Qwen2.5-1.5B + LoRA) picks #1 of the top 5
+  chat    → occasion from the message → same pipeline → stylist picks the outfit
+          → Qwen2.5-3B Instruct writes the reply; the app shows every piece's photo
+  feedback (like / dislike / save / wear / skip) → updates that user's bandit instantly
 ```
 
-| Model | Job in `/recommend` | Job in `/chat/messages` | When it is absent or its output fails validation |
-|---|---|---|---|
-| Rule ranker + critic | Builds complete, owned outfits and orders them | Supplies the selected recommendation | — (always on) |
-| **Fine-tuned stylist** (`aura-stylist-q4_k_m.gguf`, LoRA on Qwen2.5-1.5B, `training/AURA_Stylist_LLM_LoRA_Colab.ipynb`) | Picks one of the top 5 options as #1 by option number (never sees item IDs) and gives the #1 reason | Answers chat (`AURA_CHAT_USE_STYLIST=1`) | Ranker order is kept; chat uses base Qwen |
-| **Scratch AURA GPT** (`aura_fashion_gpt_final/`, `training/AURA_Scratch_Fashion_LM_Colab.ipynb`) | Explains each outfit; must return exactly `{"item_ids", "explanation"}` with the selected IDs unchanged | — | Evidence-grounded rule explanation |
-| **Base Qwen2.5-1.5B** (`qwen2.5-1.5b-instruct-q4_k_m.gguf`) | Only when neither model above ran: writes the top-two comparison and outfit notes | Only when the stylist is not installed or chat routing is off | Rule text / HTTP 503 for chat |
+| Component | What it does | Trained by this project? |
+|---|---|---|
+| **Garment CNN** (`fashion_cnn_final.keras`) | Category, type and colour of an uploaded photo, plus a visual embedding | Yes — H&M images, ~80% product-type validation accuracy |
+| **Outfit-compatibility transformer** (`model_artifacts/outfit_compat/`) | Scores how well an outfit's pieces go together from their CNN embeddings (40% of the prior score) | Yes — Polyvore Outfits, compatibility AUC 0.865 |
+| **SHIFT15M compatibility model** | Category-level fallback if the transformer is unavailable | Yes — SHIFT15M, ROC-AUC 0.775 |
+| **Contextual bandit** (`services/bandit_ranker.py`) | Personalised ranking learned online from each user's reactions | Yes — learns per user at run time (no offline training step) |
+| **Fine-tuned stylist** (`aura-stylist-q4_k_m.gguf`) | Picks one of the top 5 outfits on the Stylist screen and in chat, with a reason | Yes — LoRA on Qwen2.5-1.5B, 84% vs 39% base on held-out Polyvore choice |
+| **Qwen2.5-3B Instruct** (`qwen2.5-3b-instruct-q4_k_m.gguf`) | Writes chat replies as a stylist that knows the wardrobe and the chosen outfit | No — open model used as downloaded |
+| **Scratch AURA GPT** (`aura_fashion_gpt_final/`) | Optional per-outfit explanation on the Stylist screen | Architecture and Colab notebook only; weights are not in the repository |
 
 Rules that hold regardless of model:
 
-1. **Only the fine-tuned stylist may change the order**, and only among complete, owned options the ranker built. The untuned base Qwen model never reorders outfits. The `/recommend` trace reports `may_change_rank` and `changed_rank` for the stylist step.
-2. **No model can add, remove or swap garments.** The scratch GPT's JSON must repeat the selected IDs exactly; every model's text is filtered for unlisted garments, colours and unsupported claims before it is shown.
-3. **Training/inference parity.** The scratch GPT's prompt format lives in `Capstone_Agents/ml/explain_prompt.py` and the stylist's in `ml/stylist_prompt.py`; both notebooks embed these files byte-for-byte and a test enforces it.
-4. **Status endpoints:** `/health`, `/models/stylist/status` (picking + chat source) and `/models/fashion-language/status`.
+1. **Only owned, complete outfits are ever shown.** The candidate generator and critic build every option from the authenticated user's available garments; neither the bandit nor any LLM can add, remove or swap garments. The stylist chooses by option number and never sees database IDs.
+2. **Cold start equals the original ranker.** The bandit's prior reproduces the hand-tuned weights exactly, so a user with no feedback sees the same order as before; personalisation starts with their first reaction.
+3. **Chat is grounded in the wardrobe.** The chat model receives the full owned wardrobe and the chosen outfit, recommends that outfit (its photos are shown under the reply), may suggest optional finishing touches only as "if you have…", and must say it has no live trend data. Outfits already shown in a chat are not repeated while fresh options remain.
+4. **Training/inference parity.** The stylist's prompt format lives in `Capstone_Agents/ml/stylist_prompt.py` (and the scratch GPT's in `ml/explain_prompt.py`); the notebooks embed these files byte-for-byte and a test enforces it.
+5. **Status endpoints:** `/health`, `/models/stylist/status` (picking + chat source), `/models/personalisation/status` (what the signed-in user's bandit has learned) and `/models/fashion-language/status`.
 
-**Training data.** The scratch GPT trains on the Google Drive fashion-knowledge corpus (Stage 1) and the `constraint_v2` instruction set reformatted into the explain contract (Stage 2). The stylist LoRA trains on choose-the-real-outfit examples built from Polyvore Outfits (Vasileva et al., ECCV 2018, CC BY 4.0). See `Capstone_Agents/training/HYBRID_STYLIST.md`. Results are reported in `PROJECT_REPORT.md` only after the runs complete.
+**Training data.** CNN: H&M product images. Compatibility transformer and stylist LoRA: Polyvore Outfits (Vasileva et al., ECCV 2018, CC BY 4.0). SHIFT15M: 50,000 temporally split outfits. See `Capstone_Agents/training/HYBRID_STYLIST.md` and `PROJECT_REPORT.md`.
 
-**Retrieval.** Stylist prompts retrieve matching entries from the local heuristic reference JSON. This is prompt-time grounding, not training data. The trend cache remains optional and separate.
+**Retrieval.** Chat prompts include matching entries from the local heuristic reference JSON. This is prompt-time grounding, not training data.
+
+## Personalised ranking (contextual bandit)
+
+Outfit ranking is framed as a contextual bandit, the reinforcement-learning setting used by most recommender systems:
+
+| RL term | In AURA |
+|---|---|
+| Context | Occasion, weather and each candidate outfit's features |
+| Action | Which outfit to put first |
+| Reward | The user's reaction: wear 1.0, save 0.9, like 0.85, rating (r−1)/4, skip 0.35, dislike 0 |
+| Policy | Bayesian linear regression `reward ≈ w·x` with Thompson sampling |
+
+Features (53): the 12 ranker signals (colour, occasion, weather, preferences, feedback, learned preference, novelty, trend, pattern, silhouette, fabric, learned compatibility); 8 style descriptors (dress, layered, dark / light / colourful share, patterned share, piece count, footwear) once globally and once per occasion group (formal, evening, casual, active), so "dark looks for dates" is learned separately from "light looks for the office"; and a visual-taste feature, the similarity of the outfit's CNN embeddings to what the user liked minus what they disliked.
+
+The prior mean is the hand-tuned weighting (60% rule signals, 40% compatibility) with high prior precision on those signals and low precision on the personal style features, so the model starts from the original ranker and learns personal taste quickly. Each reaction (`POST /feedback`, the chat card's Like / Not for me / Wore it buttons, or the Stylist screen's swipes) updates that user's posterior in `bandit_models`; nothing is shared between users. The `/recommend` trace reports `contextual_bandit_thompson_sampling_then_diversity_rerank` once a user's model is active.
+
+**Evaluation with simulated users** (`python -m training.evaluate_bandit`, about 10 s; writes `model_artifacts/bandit_evaluation.json` and `bandit_learning_curve.svg`). Four hidden tastes × 15 users × 40 rounds, synthetic wardrobes, every outfit ranked each round as in the app, real candidate generator and rule scorers:
+
+| Policy | P(user likes the top outfit), last 10 rounds | Cumulative regret |
+|---|---:|---:|
+| Hand-tuned ranker (before) | 0.56 | 9.01 |
+| Bandit, greedy (no exploration) | 0.71 | 3.91 |
+| **Bandit + Thompson sampling (used)** | **0.70** | 5.11 |
+| Best possible | 0.78 | 0 |
+
+Learning from feedback adds about 14 percentage points over the fixed ranker. In this simulation greedy is slightly ahead of Thompson sampling, because each round's occasion already varies the context and the simulated tastes are linear in the features; the exploration scale (0.5) was chosen on this simulation. These are simulated users with a stand-in compatibility score: they show the learning mechanism works, not real-user satisfaction. `scripts/evaluate_feedback` computes metrics on real feedback once it exists.
 
 ## Hardware
 
-The development host is an Apple Silicon MacBook Neo with A18 Pro and 8 GiB unified RAM. Qwen 1.5B Q4_K_M is selected as a small local model (about 1.12 GB weights plus runtime/context overhead). On this host, the installed `llama-cpp-python` 0.3.36 supports Metal offload (tensor API disabled). A local two-sample benchmark with 4 threads, 4096 context, the same prompt and 96-token cap measured 23.85 tokens/s CPU versus 35.35 tokens/s with all layers offloaded to Metal; model load was 2.83s versus 1.51s. Peak process RSS was 1.67 GiB versus 1.11 GiB. These are short local measurements, not broad performance guarantees; unified GPU memory is shared with system RAM. Metal is the default on the target setup (`AURA_LLM_GPU_LAYERS=-1`); set it to `0` for CPU. The base model is downloaded separately, not committed.
+The development host is an Apple Silicon MacBook Neo with A18 Pro and 8 GiB unified RAM. The chat model is Qwen2.5-3B Instruct Q4_K_M (about 2.1 GB); with the fine-tuned stylist (about 1 GB) also loaded, a chat reply takes roughly 9–17 seconds on this host and macOS swap use was high (about 5 GB of 6 GB) during testing. On machines with 8 GB or less, the 1.5B chat model (`python -m training.download_model 1.5b`) is the lighter option. The measurements below were taken earlier for Qwen 1.5B Q4_K_M, selected then as a small local model (about 1.12 GB weights plus runtime/context overhead). On this host, the installed `llama-cpp-python` 0.3.36 supports Metal offload (tensor API disabled). A local two-sample benchmark with 4 threads, 4096 context, the same prompt and 96-token cap measured 23.85 tokens/s CPU versus 35.35 tokens/s with all layers offloaded to Metal; model load was 2.83s versus 1.51s. Peak process RSS was 1.67 GiB versus 1.11 GiB. These are short local measurements, not broad performance guarantees; unified GPU memory is shared with system RAM. Metal is the default on the target setup (`AURA_LLM_GPU_LAYERS=-1`); set it to `0` for CPU. The base model is downloaded separately, not committed.
 
 The repository also includes a small local retrieval file at `Capstone_Agents/knowledge/fashion_heuristics.json`. It is original, explicitly heuristic guidance written for this capstone, labeled CC BY 4.0; it is not empirical research, trend reporting, external source material, or training data. Retrieval adds relevant notes to local stylist prompts. The server's deterministic compatibility engine still owns outfit selection and ranking. Vision returns the trained model's color group plus a separate median RGB sample from the image center; the sample is explicitly approximate because no garment segmentation or lighting correction is performed.
 
@@ -76,15 +110,15 @@ No OpenAI, Gemini, Claude or other LLM API keys are needed.
 | Garment CNN (`fashion_cnn_final.keras`) | Recognises category and colour of uploaded clothes | Already in Git |
 | SHIFT15M compatibility model | Legacy pairwise compatibility | Already in Git |
 | Outfit-compatibility transformer (`model_artifacts/outfit_compat/`) | Scores how well the pieces of an outfit go together | Already in Git |
-| Fine-tuned stylist GGUF (`aura-stylist-q4_k_m.gguf`, ~1 GB) | Picks the #1 outfit with a reason; answers chat | `python -m training.download_stylist_model` (GitHub Release, SHA-256 verified) |
-| Base Qwen2.5-1.5B GGUF (~1.1 GB) | Fallback for chat and explanations | `python -m training.download_model` (Hugging Face) |
+| Fine-tuned stylist GGUF (`aura-stylist-q4_k_m.gguf`, ~1 GB) | Picks the #1 outfit on the Stylist screen and in chat | `python -m training.download_stylist_model` (GitHub Release, SHA-256 verified) |
+| Qwen2.5-3B Instruct GGUF (~2.1 GB) | Writes chat replies | `python -m training.download_model` (Hugging Face; `… download_model 1.5b` for the lighter 1.5B) |
 | Scratch AURA GPT (`model_artifacts/aura_fashion_gpt_final/`) | Optional per-outfit explanations | Train with `training/AURA_Scratch_Fashion_LM_Colab.ipynb` and copy the folder in |
 
 From `Capstone_Agents` with the virtual environment active:
 
 ```bash
 python -m training.download_stylist_model   # fine-tuned stylist, from the stylist-llm-v1 release
-python -m training.download_model           # base Qwen fallback
+python -m training.download_model           # Qwen2.5-3B chat model
 ```
 
 Both GGUFs land in `model_artifacts/llm/`, which is git-ignored. If you prefer a browser, download `aura-stylist-q4_k_m.gguf` from the repository's **Releases** page (tag `stylist-llm-v1`) and place it at `Capstone_Agents/model_artifacts/llm/aura-stylist-q4_k_m.gguf`.
@@ -100,7 +134,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 Check it:
 
 - `http://127.0.0.1:8000/health`: which models are present and loaded.
-- `http://127.0.0.1:8000/models/stylist/status`: should report `fine_tuned_stylist` for both picking and chat.
+- `http://127.0.0.1:8000/models/stylist/status`: should report `"source": "fine_tuned_stylist"` (outfit picking) and `"chat": "base_chat_model"` (Qwen2.5-3B writes replies).
 - `http://127.0.0.1:8000/docs`: interactive API.
 
 To use the app from a physical phone, start with `--host 0.0.0.0` instead.
@@ -121,8 +155,9 @@ Set `EXPO_PUBLIC_API_URL` in `Capstone-App/.env`: `http://127.0.0.1:8000` for we
 1. **Sign up** in the app.
 2. **Upload garments.** The CNN tags each one's category and colour.
 3. **Set preferences**, for example colours to avoid.
-4. **AI Stylist** (`/recommend`): the ranker builds complete outfits from your own clothes, the outfit-compatibility model scores them, the fine-tuned stylist picks #1 and explains why, and each outfit gets an explanation. The response's `agent_trace` shows which model did what.
-5. **Chat** (`/chat/messages`): styling questions answered by the fine-tuned stylist.
+4. **AI Stylist** (`/recommend`): the ranker builds complete outfits from your own clothes, the outfit-compatibility model and your personal bandit score them, the fine-tuned stylist picks #1 and explains why. Each card shows every piece together. The response's `agent_trace` shows which model did what.
+5. **Chat** (`/chat/messages`): ask for an outfit for an occasion ("outfit for a date", "kal office ke liye kya pehnu?") or any styling question. The stylist picks the outfit, Qwen2.5-3B explains it, and the card shows all pieces.
+6. **React** with Like / Not for me / Wore it under a chat outfit (or swipe on the Stylist screen). Your ranking adapts immediately; `/models/personalisation/status` shows what it has learned.
 
 ### 7. Verify the install
 
@@ -139,11 +174,12 @@ See `Capstone_Agents/.env.example`. Main local model settings:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `AURA_LLM_MODEL_PATH` | `model_artifacts/llm/qwen2.5-1.5b-instruct-q4_k_m.gguf` | Local GGUF weights |
+| `AURA_LLM_MODEL_PATH` | `model_artifacts/llm/qwen2.5-3b-instruct-q4_k_m.gguf` | Chat model GGUF weights |
 | `AURA_FASHION_LM_PATH` | `model_artifacts/aura_fashion_gpt_final` | Optional scratch-trained AURA fashion GPT directory |
 | `AURA_STYLIST_LLM_PATH` | `model_artifacts/llm/aura-stylist-q4_k_m.gguf` | Fine-tuned stylist GGUF (~1 GB, not in Git; `python -m training.download_stylist_model`) |
-| `AURA_STYLIST_LLM_ENABLED` | `1` | Allow the fine-tuned stylist to pick #1; set `0` if it fails its evaluation bar |
-| `AURA_CHAT_USE_STYLIST` | `1` | Serve chat from the fine-tuned stylist when installed; `0` keeps base Qwen for chat |
+| `AURA_STYLIST_LLM_ENABLED` | `1` | Let the fine-tuned stylist pick the #1 outfit (Stylist screen and chat); `0` falls back to the ranker order / chat model |
+| `AURA_CHAT_USE_STYLIST` | `0` | `1` makes the fine-tuned stylist also write chat replies (it was trained to pick outfits, not to converse) |
+| `AURA_BANDIT_ENABLED` | `1` | Personalised contextual-bandit ranking from feedback; `0` keeps the hand-tuned order |
 | `AURA_LLM_BASE_MODEL` | `Qwen/Qwen2.5-1.5B-Instruct` | Base model identity for training |
 | `AURA_LLM_CONTEXT_LENGTH` | `4096` | llama.cpp context |
 | `AURA_LLM_MAX_INPUT_TOKENS` | `3072` | Approximate input bound |
@@ -193,14 +229,15 @@ Point `AURA_LLM_MODEL_PATH` at the resulting GGUF. GPU RAM or Apple Metal build 
 
 ## Behavior and limitations
 
-- `/recommend` is ranked by deterministic rules over the authenticated user's available wardrobe. If the fine-tuned stylist is installed and enabled, it may move one of the top five options to #1 (by option number only). When the scratch model directory exists, it explains each outfit from the selected garments, occasion, weather and saved preferences only; a strict parser requires the exact selected ID list and the keys `item_ids` and `explanation`, and invalid output falls back to the evidence-grounded rule explanation. Check the response's `agent_trace` and each recommendation's `explanation_source`.
-- `/chat/messages` uses local generation: the fine-tuned stylist when installed, otherwise base Qwen. Missing/broken model files produce an actionable 503; generation errors are not hidden by a deterministic or hosted fallback.
+- `/recommend` is ranked over the authenticated user's available wardrobe by the hand-tuned prior until the user gives feedback, then by their contextual bandit. If the fine-tuned stylist is installed and enabled, it may move one of the top five options to #1 (by option number only). When the scratch model directory exists, it explains each outfit from the selected garments, occasion, weather and saved preferences only; a strict parser requires the exact selected ID list and the keys `item_ids` and `explanation`, and invalid output falls back to the evidence-grounded rule explanation. Check the response's `agent_trace` and each recommendation's `explanation_source`.
+- `/chat/messages`: for outfit requests the occasion is detected from English keywords (date, meeting, office, travel, party, wedding, …; otherwise "casual"), the fine-tuned stylist picks among the top 5 (falling back to the chat model, then the ranker), and Qwen2.5-3B writes a free-form reply. Replies are not filtered sentence by sentence; a reply that pairs a dress with separates is regenerated once. Missing/broken model files produce an actionable 503; generation errors are not hidden by a deterministic or hosted fallback.
+- Known chat limitations: the 3B model occasionally names a piece that is not in the shown outfit or adds an owned layer; Hindi occasion words (for example "shaadi") are not detected; chat replies are in English; the stylist picker sees the occasion but not free-text wishes such as "bolder".
 - Each recommendation response is recorded as a ranked API slate, and feedback IDs are checked against that user's exact recommendation before accepting a judgement.
 - Private wardrobe, preference, upload, recommendation, and feedback APIs require a valid owner session; uploaded wardrobe images use short-lived signed URLs and are checked against their owning database row.
 - A real local CPU inference smoke check on the MacBook Neo loaded the downloaded GGUF and answered a fashion prompt in about 6 seconds (96 token cap), with about 1.8 GiB peak process RSS and no swap. This is one prompt, not a benchmark or quality claim. A real authenticated recommendation request also returned a local LLM explanation whose candidate IDs remained a subset of that account's wardrobe.
 - Legacy agent modules share the same local `call_llm` adapter.
 - Trend refresh no longer invokes hosted search or generation. It returns historical cache data marked stale, or an empty, clearly unavailable result; OpenWeather remains an unrelated optional third-party service.
-- Small 1.5B models may produce weaker fashion reasoning and structured JSON than hosted larger models. Validate ownership constraints in application logic, not only through prompting.
+- Small local models (1.5B–3B) produce weaker fashion reasoning than hosted larger models. Ownership constraints are enforced in application logic, not only through prompting.
 
 ## Verification
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import logging
 import math
 import random
 import uuid
@@ -22,12 +23,14 @@ from services.agentic_recommender import (
     repetition_score,
     summarize_agent_run,
 )
-from services import outfit_compat_service, stylist_selector
+from services import bandit_ranker, outfit_compat_service, stylist_selector
 from ml.stylist_prompt import MAX_OPTIONS as MAX_STYLIST_OPTIONS
 from settings import settings
 from services.trend_service import current_fashion_trends, trend_relevance
 from services.compatibility_service import learned_compatibility_score
 from services.fashion_analysis import analyze_outfit
+
+LOGGER = logging.getLogger(__name__)
 
 
 NEUTRALS = {
@@ -105,7 +108,8 @@ def color_score(items: list[dict[str, Any]]) -> float:
     return 48.0
 
 
-def _diverse_rerank(candidates: list[dict[str, Any]], limit: int, penalty_weight: float = 10.0) -> list[dict[str, Any]]:
+def _diverse_rerank(candidates: list[dict[str, Any]], limit: int, penalty_weight: float = 10.0,
+                    score_key: str = "compatibility_score") -> list[dict[str, Any]]:
     """Greedy maximal-marginal-relevance rerank; preserves raw rule score separately."""
     remaining = list(candidates)
     selected: list[dict[str, Any]] = []
@@ -118,8 +122,8 @@ def _diverse_rerank(candidates: list[dict[str, Any]], limit: int, penalty_weight
                 for previous in selected
             ]
             overlap = max(overlaps, default=0.0)
-            return (entry["compatibility_score"] - penalty_weight * overlap,
-                    entry["compatibility_score"], tuple(sorted(entry["item_ids"])))
+            return (entry[score_key] - penalty_weight * overlap,
+                    entry[score_key], tuple(sorted(entry["item_ids"])))
 
         best = max(remaining, key=adjusted)
         remaining.remove(best)
@@ -627,9 +631,13 @@ def recommend(
                 entry["compatibility_score"] = max(0, entry["compatibility_score"] - 12)
                 ranked.append(entry)
     steps.append(execution_step("revision_agent", "completed" if revised else "skipped", revision_rounds=1 if revised else 0, reason="no_candidate_passed_context_critique" if revised else "at_least_one_candidate_passed_critique"))
-    ranked.sort(key=lambda entry: entry["compatibility_score"], reverse=True)
-    pool = _diverse_rerank(ranked, max(limit, MAX_STYLIST_OPTIONS if use_stylist else limit))
-    steps.append(execution_step("ranking_agent", "completed", eligible_candidates=len(ranked), selected=min(limit, len(pool)), method="weighted_signals_then_diversity_rerank"))
+    # Personalised policy: a per-user contextual bandit (Thompson sampling) re-scores the
+    # candidates once the user has given feedback; before that the hand-tuned prior is used.
+    personalised = settings.bandit_enabled and bandit_ranker.rank(user_id, ranked, occasion)
+    score_key = "bandit_score" if personalised else "compatibility_score"
+    ranked.sort(key=lambda entry: entry[score_key], reverse=True)
+    pool = _diverse_rerank(ranked, max(limit, MAX_STYLIST_OPTIONS if use_stylist else limit), score_key=score_key)
+    steps.append(execution_step("ranking_agent", "completed", eligible_candidates=len(ranked), selected=min(limit, len(pool)), method="contextual_bandit_thompson_sampling_then_diversity_rerank" if personalised else "weighted_signals_then_diversity_rerank"))
 
     stylist_choice = None
     if use_stylist and len(pool) > 1:
@@ -734,3 +742,10 @@ def save_feedback(data: dict[str, Any]) -> None:
                 utc_now(),
             ),
         )
+    if settings.bandit_enabled:
+        try:
+            bandit_ranker.learn_from_feedback(
+                data["user_id"], data.get("recommendation_id"), data["action"], data.get("rating"),
+            )
+        except Exception:  # learning must never lose the user's saved feedback
+            LOGGER.exception("Bandit update failed for recommendation %s", data.get("recommendation_id"))

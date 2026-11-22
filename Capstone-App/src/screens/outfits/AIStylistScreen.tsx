@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { AppImage } from '@/components/shared/AppImage';
-import { CompatibilityRing } from '@/components/outfits/CompatibilityRing';
+import { OutfitCollage } from '@/components/outfits/OutfitCollage';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
 import { OCCASIONS } from '@/constants/categories';
@@ -250,11 +250,8 @@ function SwipeCard({
       <Animated.View style={[style, { width }]} entering={FadeIn.duration(motion.long)}>
         <View className="bg-surface rounded-md border border-border overflow-hidden">
           <View className="relative" style={{ aspectRatio: 4 / 4.4 }}>
-            <AppImage source={{ uri: outfit.imageUrl }} className="w-full h-full" contentFit="cover" />
-            <GradientScrim color={landing.night} opacity={0.85} from={0.4} />
-            <View className="absolute top-4 right-4">
-              <CompatibilityRing score={outfit.compatibilityScore} size={72} />
-            </View>
+            <OutfitCollage outfit={outfit} />
+            <GradientScrim color={landing.night} opacity={0.85} from={0.55} />
             <Animated.View style={saveCue} className="absolute top-4 left-4 flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-stylist">
               <Ionicons name="bookmark" size={14} color={palette.stylistInk} />
               <Text className="font-body-semibold text-sm text-stylist-ink">Save</Text>

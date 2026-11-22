@@ -1,7 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { AppImage } from '@/components/shared/AppImage';
+import { OutfitCollage } from '@/components/outfits/OutfitCollage';
 import { GradientScrim } from '@/components/shared/GradientScrim';
-import { CompatibilityRing } from '@/components/outfits/CompatibilityRing';
 import type { Outfit } from '@/types';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import { hapticLight } from '@/utils/haptics';
@@ -22,7 +22,7 @@ export function OutfitCard({ outfit, compact, onPress, className }: OutfitCardPr
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${outfit.name}, ranked by uncalibrated wardrobe rule signals`}
+      accessibilityLabel={outfit.itemImages?.length ? `${outfit.name}: ${outfit.itemImages.map((p) => p.label).join(', ')}` : outfit.name}
       onPress={() => {
         hapticLight();
         onPress?.();
@@ -32,12 +32,9 @@ export function OutfitCard({ outfit, compact, onPress, className }: OutfitCardPr
         className,
       )}
     >
-      <View className={cn('relative', compact ? 'h-44' : 'h-72')}>
-        <AppImage source={{ uri: outfit.imageUrl }} className="w-full h-full" contentFit="cover" />
-        <GradientScrim color={landing.night} opacity={0.82} from={0.3} />
-        <View className="absolute top-3 right-3">
-          <CompatibilityRing score={outfit.compatibilityScore} size={compact ? 56 : 72} />
-        </View>
+      <View className={cn('relative', compact ? 'h-64' : 'h-80')}>
+        <OutfitCollage outfit={outfit} />
+        <GradientScrim color={landing.night} opacity={0.82} from={0.55} />
         <View className="absolute bottom-3 left-4 right-4">
           <Text
             numberOfLines={compact ? 2 : 1}

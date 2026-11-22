@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { AppImage } from '@/components/shared/AppImage';
+import { OutfitCollage } from '@/components/outfits/OutfitCollage';
 import { GradientScrim } from '@/components/shared/GradientScrim';
 import { Wordmark } from '@/components/shared/Wordmark';
 import { Card } from '@/components/ui/Card';
@@ -115,9 +116,6 @@ export function HomeScreen() {
             <Text accessibilityRole="header" className="text-text-primary font-display text-2xl">
               Today’s look
             </Text>
-            {todayOutfit && (
-              <Text className="text-text-tertiary font-body text-xs mt-1">Ranked by rule signals, uncalibrated</Text>
-            )}
           </View>
           {recommendationsLoading && !todayOutfit ? (
             <Skeleton className="h-[440px] w-full rounded-md" />
@@ -129,8 +127,8 @@ export function HomeScreen() {
                 onPress={() => hapticLight()}
                 className="rounded-md overflow-hidden h-[440px] border border-border"
               >
-                <AppImage source={{ uri: todayOutfit.imageUrl }} className="w-full h-full" contentFit="cover" />
-                <GradientScrim color={landing.night} opacity={0.88} from={0.35} />
+                <OutfitCollage outfit={todayOutfit} />
+                <GradientScrim color={landing.night} opacity={0.88} from={0.55} />
                 <View className="absolute left-0 right-0 bottom-0 p-6">
                   <View className="self-start rounded-full px-3 py-1 mb-3 bg-stylist">
                     <Text className="font-body-semibold text-xs text-stylist-ink">{occasionLabel}</Text>

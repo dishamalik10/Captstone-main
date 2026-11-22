@@ -149,6 +149,13 @@ def init_database() -> None:
                 PRIMARY KEY(follower_id, followed_id)
             );
 
+            CREATE TABLE IF NOT EXISTS bandit_models (
+                user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                state_json TEXT NOT NULL,
+                updates INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS chat_messages (
                 message_id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,

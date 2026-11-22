@@ -63,6 +63,8 @@ export interface Outfit {
   occasion: Occasion;
   compatibilityScore: number;
   imageUrl: string;
+  /** Every piece's photo, so the outfit can be shown as one combined look. */
+  itemImages?: { url: string; label: string }[];
   itemIds: string[];
   explanation: string;
   saved?: boolean;

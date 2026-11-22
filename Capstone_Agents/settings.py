@@ -19,7 +19,7 @@ class Settings:
             ROOT / "model_artifacts" / "aura_fashion_gpt_final",
         )
     ).expanduser()
-    llm_model_path: Path = Path(os.getenv("AURA_LLM_MODEL_PATH", ROOT / "model_artifacts" / "llm" / "qwen2.5-1.5b-instruct-q4_k_m.gguf"))
+    llm_model_path: Path = Path(os.getenv("AURA_LLM_MODEL_PATH", ROOT / "model_artifacts" / "llm" / "qwen2.5-3b-instruct-q4_k_m.gguf"))
     llm_context_length: int = int(os.getenv("AURA_LLM_CONTEXT_LENGTH", "4096"))
     llm_max_input_tokens: int = int(os.getenv("AURA_LLM_MAX_INPUT_TOKENS", "3072"))
     llm_max_output_tokens: int = int(os.getenv("AURA_LLM_MAX_OUTPUT_TOKENS", "384"))
@@ -94,7 +94,9 @@ class Settings:
     stylist_llm_enabled: bool = os.getenv("AURA_STYLIST_LLM_ENABLED", "1") not in {"0", "false", "False"}
     # Serve chat from the fine-tuned stylist GGUF when it is installed; otherwise
     # (or with 0) chat uses the base chat GGUF at AURA_LLM_MODEL_PATH.
-    chat_use_stylist: bool = os.getenv("AURA_CHAT_USE_STYLIST", "1") not in {"0", "false", "False"}
+    chat_use_stylist: bool = os.getenv("AURA_CHAT_USE_STYLIST", "0") not in {"0", "false", "False"}
+    # Personalised contextual-bandit ranking learned from each user's feedback.
+    bandit_enabled: bool = os.getenv("AURA_BANDIT_ENABLED", "1") not in {"0", "false", "False"}
     max_upload_bytes: int = int(os.getenv("AURA_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
     allowed_origins: tuple[str, ...] = tuple(
         value.strip()

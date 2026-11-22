@@ -10,7 +10,6 @@ import { useNavigation } from '@react-navigation/native';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { Header } from '@/components/shared/Header';
 import { AppImage } from '@/components/shared/AppImage';
-import { CompatibilityRing } from '@/components/outfits/CompatibilityRing';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import { calculateCompatibility } from '@/utils/helpers';
 import { hapticLight } from '@/utils/haptics';
@@ -47,11 +46,7 @@ export function OutfitBuilderScreen() {
           <View className="rounded-md border border-border bg-surface p-4">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-text-primary font-body-semibold text-base">Your look</Text>
-              {score > 0 ? (
-                <CompatibilityRing score={score} size={56} />
-              ) : (
-                <Text className="text-text-tertiary font-body text-sm tabular-nums">{selectedIds.length} of 4</Text>
-              )}
+              <Text className="text-text-tertiary font-body text-sm tabular-nums">{selectedIds.length} of 4</Text>
             </View>
             <View className="flex-row gap-2">
               {[0, 1, 2, 3].map((slot) => {

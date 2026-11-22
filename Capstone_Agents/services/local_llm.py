@@ -53,6 +53,7 @@ class LocalLLM:
         self, prompt: str, *, system_prompt: str = "You are AURA, a concise personal fashion stylist.",
         max_tokens: int | None = None, temperature: float | None = None,
         response_format: dict[str, Any] | None = None,
+        history: list[dict[str, str]] | None = None,
     ) -> str:
         if not isinstance(prompt, str) or not prompt.strip():
             raise ValueError("Prompt must not be empty.")
@@ -67,6 +68,7 @@ class LocalLLM:
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
+                *(history or []),
                 {"role": "user", "content": prompt},
             ]
             input_limit = min(
