@@ -22,6 +22,7 @@ const SECTIONS: Section[] = [
   { id: 'edit', label: 'Edit Profile', icon: 'person-outline', route: 'EditProfile' },
   { id: 'style', label: 'Style Preferences', icon: 'color-palette-outline', route: 'StylePreferences' },
   { id: 'analysis', label: 'Style Analyzer', icon: 'analytics-outline', route: 'StyleAnalysis' },
+  { id: 'virtual', label: 'My Virtual Look', icon: 'person-circle-outline', route: 'VirtualLook' },
   { id: 'body', label: 'Body & Sizing', icon: 'body-outline', route: 'BodySizing' },
   { id: 'skin', label: 'Skin Tone', icon: 'sunny-outline', route: 'SkinTone' },
   { id: 'notifications', label: 'Notification Settings', icon: 'notifications-outline', route: 'NotificationSettings' },
@@ -33,7 +34,7 @@ const SECTIONS: Section[] = [
 ];
 
 const GROUPS: { title: string; ids: string[] }[] = [
-  { title: 'Your style', ids: ['edit', 'style', 'analysis', 'body', 'skin'] },
+  { title: 'Your style', ids: ['edit', 'virtual', 'style', 'analysis', 'body', 'skin'] },
   { title: 'Activity', ids: ['chat', 'activity', 'seller'] },
   { title: 'Settings', ids: ['notifications', 'appearance', 'help'] },
 ];
@@ -137,6 +138,7 @@ export function ProfileScreen() {
 const DISPLAY: Record<string, string> = {
   'AI Chat': 'Stylist chat',
   'Body & Sizing': 'Body and sizing',
+  'My Virtual Look': 'My virtual look',
 };
 function prettyLabel(label: string) {
   return DISPLAY[label] ?? label.charAt(0) + label.slice(1).toLowerCase();

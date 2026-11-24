@@ -15,6 +15,7 @@ export const ROUTES = {
   Profile: 'Profile',
   ClothingDetail: 'ClothingDetail',
   OutfitBuilder: 'OutfitBuilder',
+  VirtualLook: 'VirtualLook',
   ProductDetail: 'ProductDetail',
   Cart: 'Cart',
   Checkout: 'Checkout',

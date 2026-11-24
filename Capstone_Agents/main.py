@@ -24,6 +24,7 @@ from contracts.api_schemas import (
     ChatRequest,
     ProductCreate,
     PostCreate,
+    TryOnRequest,
 )
 from database import ensure_user, init_database, rows
 from services.preference_service import get_preferences, save_preferences
@@ -35,7 +36,8 @@ from services.purchase_impact_service import analyze_purchase_impact
 from services.trend_service import current_fashion_trends
 from services.local_llm import LocalModelError, get_model_info, local_llm
 from services.compatibility_service import compatibility_model_status
-from services import outfit_compat_service, stylist_selector
+from services import outfit_compat_service, stylist_selector, tryon_service
+from services.body_analysis import BodyPhotoError
 from services.aura_fashion_lm import (
     model_info as fashion_lm_model_info,
     unload_model as unload_fashion_model,
@@ -89,6 +91,7 @@ def current_auth(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_database()
+    tryon_service.init_tables()
     # Load only the model that serves chat (the fine-tuned stylist when installed),
     # so an 8 GB host does not hold two 1 GB GGUFs at startup.
     chat_model = stylist_selector.chat_llm()
@@ -104,6 +107,7 @@ async def lifespan(_: FastAPI):
         chat_model.unload_model()
         local_llm.unload_model()
         unload_fashion_model()
+        tryon_service.model.unload()
 
 
 app = FastAPI(
@@ -146,7 +150,7 @@ def uploaded_image(
     owned = rows(
         "SELECT 1 FROM clothing_items WHERE user_id=? AND image_path=? LIMIT 1",
         (user_id, str(path)),
-    )
+    ) or tryon_service.owns_media(user_id, path)
     if not owned:
         raise HTTPException(404, "Image not found or the link has expired.")
     return FileResponse(
@@ -608,6 +612,88 @@ def wear_logs(auth: tuple[dict, str] = Depends(current_auth)) -> list[dict]:
         }
         for item in records
     ]
+
+
+# -- My Virtual Look: avatar + virtual try-on ----------------------------------------------
+
+@app.get("/tryon/status")
+def tryon_status() -> dict:
+    return tryon_service.status()
+
+
+@app.get("/avatar")
+def read_avatar(auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    return {"avatars": tryon_service.get_avatars(auth[0]["id"]), "status": tryon_service.status()}
+
+
+@app.post("/avatar", status_code=201)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    view: str = Form("front"),
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    """Create (or replace) the user's avatar from a full-body photo and analyse its proportions."""
+    from io import BytesIO
+    from PIL import Image, UnidentifiedImageError
+
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(415, "Only JPEG, PNG, and WebP images are accepted.")
+    content = await file.read(settings.max_upload_bytes + 1)
+    if len(content) > settings.max_upload_bytes:
+        raise HTTPException(413, "Image is larger than the configured upload limit.")
+    try:
+        photo = Image.open(BytesIO(content))
+        photo.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(422, "That file is not a readable image.") from exc
+    try:
+        return tryon_service.create_avatar(auth[0]["id"], photo, view)
+    except BodyPhotoError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.delete("/avatar", status_code=204, response_class=Response)
+def remove_avatar(auth: tuple[dict, str] = Depends(current_auth)) -> Response:
+    """Delete the user's body photos, avatar and every try-on render (privacy)."""
+    tryon_service.delete_avatars(auth[0]["id"])
+    return Response(status_code=204)
+
+
+@app.post("/tryon", status_code=202)
+def start_tryon(payload: TryOnRequest, auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    try:
+        return tryon_service.request_render(
+            auth[0]["id"], payload.item_ids, payload.view, payload.recommendation_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.get("/tryon/saved")
+def saved_tryons(auth: tuple[dict, str] = Depends(current_auth)) -> list[dict]:
+    return tryon_service.saved_looks(auth[0]["id"])
+
+
+@app.get("/tryon/{render_id}")
+def read_tryon(render_id: str, auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    try:
+        return tryon_service.get_render(auth[0]["id"], render_id)
+    except KeyError as exc:
+        raise HTTPException(404, "Look not found.") from exc
+
+
+@app.post("/tryon/{render_id}/save")
+def save_tryon(render_id: str, saved: bool = True, auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    try:
+        return tryon_service.set_saved(auth[0]["id"], render_id, saved)
+    except KeyError as exc:
+        raise HTTPException(404, "Only a finished look can be saved.") from exc
 
 
 @app.get("/")

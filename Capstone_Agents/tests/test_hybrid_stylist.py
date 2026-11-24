@@ -260,7 +260,8 @@ def test_recommend_api_returns_stylist_choice(monkeypatch):
         prediction("Sneakers", "Shoes", "White", "Footwear"),
     ])
     monkeypatch.setattr(vision_service, "predict", lambda _: next(uploads))
-    fake = _use_fake_llm(monkeypatch, '{"choice": 2, "reason": "The pink blouse with black trousers feels right for a date."}')
+    # The ranker puts the pink blouse first for a date; the stylist promotes option 2.
+    fake = _use_fake_llm(monkeypatch, '{"choice": 2, "reason": "The white shirt with black trousers feels right for a date."}')
     with TestClient(app) as client:
         account = client.post("/auth/signup", json={"full_name": "Stylist Test", "email": f"s{uuid.uuid4().hex[:6]}@example.com", "password": "secure-pass-123"})
         user_id, token = account.json()["user"]["id"], account.json()["token"]
@@ -276,8 +277,8 @@ def test_recommend_api_returns_stylist_choice(monkeypatch):
         body = response.json()
         first = body["recommendations"][0]
         assert first["explanation_source"] == "stylist_llm"
-        assert "pink" in first["explanation"].lower()
-        assert any(item["subcategory"] == "Blouse" for item in first["items"])
+        assert "white shirt" in first["explanation"].lower()
+        assert any(item["subcategory"] == "Shirt" for item in first["items"])
         prompt = json.loads(fake.calls[0]["prompt"])
         assert prompt["body_shape"] == "pear" and prompt["skin_tone"] == "olive"
         assert prompt["weather"]["temperature_c"] is None  # no weather supplied

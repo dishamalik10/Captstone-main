@@ -48,18 +48,6 @@ COLOR_FAMILIES = {
     "neutral": NEUTRALS,
 }
 KNOWN_COLORS = set(NEUTRALS).union(*(colors for colors in COLOR_FAMILIES.values()))
-FORMAL_WORDS = {
-    "blazer", "coat", "shirt", "dress", "trousers", "pumps", "heels",
-    "loafer", "suit", "tailored", "formal",
-}
-CASUAL_WORDS = {
-    "t-shirt", "tee", "jeans", "sneakers", "hoodie", "shorts", "casual",
-}
-SPORT_WORDS = {
-    "sports", "legging", "sneakers", "trainer", "swim", "active",
-}
-
-
 def _words(items: Iterable[dict[str, Any]]) -> str:
     return " ".join(
         f"{item['subcategory']} {item.get('garment_group', '')} "
@@ -138,50 +126,116 @@ def _diverse_rerank(candidates: list[dict[str, Any]], limit: int, penalty_weight
     return selected
 
 
+# How well each kind of garment suits each occasion group (-3 wrong .. +3 ideal).
+# Keyed by lower-case subcategory; the category is the fallback.
+_OCCASION_FIT: dict[str, dict[str, int]] = {
+    #                 formal  evening  wedding  casual  active
+    "blazer":        {"formal": 3, "evening": 0, "wedding": 1, "casual": -1, "active": -3},
+    "coat":          {"formal": 2, "evening": 0, "wedding": 1, "casual": 0, "active": -2},
+    "jacket":        {"formal": -1, "evening": 1, "wedding": -2, "casual": 2, "active": 0},
+    "tailored waistcoat": {"formal": 2, "evening": 1, "wedding": 1, "casual": -1, "active": -3},
+    "shirt":         {"formal": 3, "evening": 1, "wedding": 1, "casual": 1, "active": -2},
+    "blouse":        {"formal": 2, "evening": 2, "wedding": 1, "casual": 1, "active": -2},
+    "top":           {"formal": 0, "evening": 2, "wedding": 0, "casual": 2, "active": 0},
+    "t-shirt":       {"formal": -2, "evening": 0, "wedding": -3, "casual": 3, "active": 2},
+    "vest top":      {"formal": -2, "evening": 1, "wedding": -2, "casual": 2, "active": 2},
+    "polo shirt":    {"formal": 0, "evening": -1, "wedding": -2, "casual": 2, "active": 1},
+    "sweater":       {"formal": 1, "evening": 0, "wedding": -1, "casual": 2, "active": -1},
+    "cardigan":      {"formal": 1, "evening": 0, "wedding": -1, "casual": 2, "active": -2},
+    "hoodie":        {"formal": -3, "evening": -2, "wedding": -3, "casual": 3, "active": 2},
+    "bodysuit":      {"formal": 0, "evening": 2, "wedding": 0, "casual": 1, "active": 0},
+    "trousers":      {"formal": 3, "evening": 1, "wedding": 1, "casual": 1, "active": -1},
+    "jeans":         {"formal": -1, "evening": 1, "wedding": -3, "casual": 3, "active": -1},
+    "skirt":         {"formal": 1, "evening": 3, "wedding": 1, "casual": 1, "active": -2},
+    "shorts":        {"formal": -3, "evening": -1, "wedding": -3, "casual": 3, "active": 2},
+    "leggings/tights": {"formal": -2, "evening": -1, "wedding": -3, "casual": 1, "active": 3},
+    "dress":         {"formal": 1, "evening": 3, "wedding": 3, "casual": 1, "active": -3},
+    "jumpsuit/playsuit": {"formal": 0, "evening": 2, "wedding": 1, "casual": 2, "active": -2},
+    "heels":         {"formal": 2, "evening": 3, "wedding": 3, "casual": -1, "active": -3},
+    "pumps":         {"formal": 3, "evening": 2, "wedding": 2, "casual": -1, "active": -3},
+    "sneakers":      {"formal": -2, "evening": -1, "wedding": -3, "casual": 3, "active": 3},
+    "boots":         {"formal": 1, "evening": 2, "wedding": 0, "casual": 2, "active": -1},
+    "sandals":       {"formal": -2, "evening": 1, "wedding": 1, "casual": 2, "active": -1},
+}
+_CATEGORY_FIT = {
+    "Dress": _OCCASION_FIT["dress"],
+    "Top": _OCCASION_FIT["top"],
+    "Bottom": {"formal": 0, "evening": 0, "wedding": -1, "casual": 2, "active": 0},
+    "Outerwear": {"formal": 0, "evening": 0, "wedding": 0, "casual": 1, "active": -1},
+    "Footwear": {"formal": 0, "evening": 0, "wedding": 0, "casual": 1, "active": 0},
+    "Accessory": {"formal": 1, "evening": 2, "wedding": 2, "casual": 0, "active": -1},
+}
+_OCCASION_GROUP = {
+    **{name: "formal" for name in ("meeting", "office", "work", "interview", "formal", "smart casual")},
+    **{name: "evening" for name in ("date", "party", "festival", "concert")},
+    "wedding": "wedding",
+    **{name: "active" for name in ("gym", "workout", "sport")},
+}
+# Fallback word signals for free-text style tags.
+FORMAL_WORDS = {"tailored", "formal", "suit", "office"}
+CASUAL_WORDS = {"casual", "sporty", "street", "lounge", "denim"}
+EVENING_WORDS = {"evening", "lace", "sequin", "party", "one-shoulder", "satin"}
+
+
+def _garment_fit(item: dict[str, Any], group: str) -> int:
+    table = _OCCASION_FIT.get(str(item.get("subcategory", "")).lower())
+    if table is None:
+        table = _CATEGORY_FIT.get(item.get("category"), {})
+    return table.get(group, 0)
+
+
 def occasion_score(items: list[dict[str, Any]], occasion: str) -> float:
-    words = _words(items)
+    """How well the garments suit the occasion, from each garment's type (0-100).
+
+    Core pieces (dress / top / bottom) count fully and add-ons half; for formal
+    occasions and weddings the outer layer counts fully too.
+    """
     occasion = occasion.lower()
-    formal = sum(word in words for word in FORMAL_WORDS)
-    casual = sum(word in words for word in CASUAL_WORDS)
-    sport = sum(word in words for word in SPORT_WORDS)
-    formal_occasions = {"wedding", "interview", "formal", "meeting", "office", "work", "smart casual"}
-    if occasion in formal_occasions:
-        score = min(100.0, 55 + formal * 12 - casual * 7)
-    elif occasion in {"gym", "workout", "sport"}:
-        score = min(100.0, 55 + sport * 15 - formal * 5)
-    elif occasion == "date":
-        has_dress = any(item.get("category") == "Dress" for item in items)
-        has_outerwear = any(item.get("category") == "Outerwear" for item in items)
-        has_accessory = any(item.get("category") == "Accessory" for item in items)
-        score = min(
-            100.0,
-            66 + formal * 6 + (16 if has_dress else 0)
-            + (5 if has_outerwear else 0) + (4 if has_accessory else 0)
-            - casual * 5,
-        )
-    elif occasion in {"party", "festival", "concert"}:
-        has_dress = any(item.get("category") == "Dress" for item in items)
-        score = min(100.0, 68 + formal * 7 + (10 if has_dress else 0))
-    else:
-        score = min(100.0, 72 + casual * 5)
+    group = _OCCASION_GROUP.get(occasion, "casual")
+    if not items:
+        return 0.0
+    total = weight = 0.0
+    core = {"Dress", "Top", "Bottom"}
+    if group in {"formal", "wedding"}:
+        core = core | {"Outerwear"}  # the blazer is what makes a meeting look formal
+    for item in items:
+        w = 1.0 if item.get("category") in core else 0.5
+        total += w * _garment_fit(item, group)
+        weight += w
+    score = 60.0 + 15.0 * total / weight          # mean fit -3..+3 -> 15..100
+    tags = " ".join(str(t).lower() for item in items for t in item.get("style_tags", []))
+    evening = sum(w in tags for w in EVENING_WORDS)
+    if group == "formal":
+        # Lace or party pieces read wrong at a meeting even under a blazer.
+        score += 4 * sum(w in tags for w in FORMAL_WORDS) - 4 * sum(w in tags for w in CASUAL_WORDS) - 12 * evening
+    elif group == "wedding":
+        score += 4 * sum(w in tags for w in FORMAL_WORDS) - 4 * sum(w in tags for w in CASUAL_WORDS) + 2 * evening
+    elif group == "evening":
+        score += 4 * evening - 3 * sum(w in tags for w in CASUAL_WORDS)
+    elif group == "casual":
+        score += 4 * sum(w in tags for w in CASUAL_WORDS) - 3 * evening
     occasion_terms = {
         "college": {"college", "campus", "casual"},
         "office": {"office", "work", "smart casual", "formal"},
         "work": {"office", "work", "smart casual", "formal"},
         "smart casual": {"office", "meeting", "smart casual"},
-        "meeting": {"meeting", "office", "smart casual", "formal"},
+        "meeting": {"meeting", "office", "interview", "smart casual", "formal"},
         "wedding": {"wedding", "ceremony", "formal"},
-        "interview": {"interview", "formal", "office"},
+        "interview": {"interview", "meeting", "formal", "office"},
         "party": {"party", "evening", "festival"},
+        "date": {"date", "evening", "party"},
         "festival": {"festival", "party", "cultural"},
         "travel": {"travel", "casual", "walking"},
         "casual": {"casual", "everyday", "college"},
     }.get(occasion, {occasion})
-    explicit = sum(
-        bool(occasion_terms & {str(tag).lower() for tag in item.get("occasion_tags", [])})
-        for item in items
+    tagged = [{str(tag).lower() for tag in item.get("occasion_tags", [])} for item in items]
+    explicit = sum(bool(occasion_terms & tags) for tags in tagged)
+    # A piece tagged only for other occasions (a party dress at an interview) counts against.
+    mismatched = sum(
+        (12 if item.get("category") in {"Dress", "Top", "Bottom"} else 6)
+        for item, tags in zip(items, tagged) if tags and not (occasion_terms & tags)
     )
-    score += min(18, explicit * 6)
+    score += min(18, explicit * 6) - min(30, mismatched)
     return max(0.0, min(100.0, score))
 
 
@@ -197,6 +251,16 @@ def weather_score(
             score -= 30
         if any(word in words for word in ("shorts", "t-shirt", "dress", "sandals")):
             score += 10
+    elif temperature >= 22:
+        # Mild-to-warm: a layer is optional; a warm one (fleece, wool, sherpa) is a poor choice.
+        for item in items:
+            if item.get("category") != "Outerwear":
+                continue
+            material = f"{item.get('fabric') or ''} {item.get('texture') or ''} {' '.join(item.get('style_tags', []))}".lower()
+            if any(word in material for word in ("fleece", "wool", "sherpa", "warm", "down", "fur")):
+                score -= 45  # falls below the critic's weather floor: not offered at all
+            elif "blazer" not in str(item.get("subcategory", "")).lower():
+                score -= 8
     elif temperature <= 15:
         if any(word in words for word in ("coat", "jacket", "sweater", "knit", "boots")):
             score += 12
@@ -500,19 +564,7 @@ def _score_entries(
             "novelty": repetition_score(user_id, item_ids, worn),
             "trend": trend_relevance(items, trend_context),
         }
-        rule_total = (
-            scores["color"] * 0.17
-            + scores["occasion"] * 0.17
-            + scores["weather"] * 0.14
-            + scores["preference"] * 0.14
-            + scores["feedback"] * 0.08
-            + scores["learned_preference"] * 0.13
-            + scores["novelty"] * 0.05
-            + scores["trend"] * 0.03
-            + scores["pattern"] * 0.03
-            + scores["silhouette"] * 0.03
-            + scores["fabric_weather"] * 0.03
-        )
+        rule_total = sum(scores[name] * weight for name, weight in bandit_ranker.RULE_WEIGHTS.items())
         visual = item_level[index] if item_level is not None else None
         if visual is not None:
             # Item-level visual compatibility learned from real Polyvore outfits.

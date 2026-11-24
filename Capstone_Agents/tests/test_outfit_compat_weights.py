@@ -46,3 +46,9 @@ def test_stylist_response_schema_has_no_length_limits():
     assert not {"maxLength", "minLength", "maxItems", "minItems"} & set(keys(RESPONSE_SCHEMA))
     choice, reason = parse_answer('{"choice": 2, "reason": "' + "a" * 1000 + '"}', 3)
     assert choice == 2 and len(reason) == 420
+
+
+def test_single_piece_outfit_is_not_scored_by_the_pairwise_model():
+    from services import outfit_compat_service
+    dress = {"item_id": "d1", "category": "Dress"}
+    assert outfit_compat_service.score_outfits("nobody", [[dress]]) in (None, [None])

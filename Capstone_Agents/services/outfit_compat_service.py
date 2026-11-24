@@ -80,7 +80,9 @@ def score_outfits(user_id: str, outfits: list[list[dict[str, Any]]]) -> list[flo
     scorable: list[int] = []
     packed: list[list[tuple[np.ndarray, str]]] = []
     for index, outfit in enumerate(outfits):
-        if all(item["item_id"] in embeddings for item in outfit):
+        # The model learned how pieces go *together* (Polyvore outfits have 2+ items);
+        # a lone dress has no pairs to judge and scored near zero, burying every dress.
+        if len(outfit) >= 2 and all(item["item_id"] in embeddings for item in outfit):
             scorable.append(index)
             packed.append([(embeddings[item["item_id"]], item.get("category", "")) for item in outfit])
     scores: list[float | None] = [None] * len(outfits)

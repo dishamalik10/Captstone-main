@@ -151,3 +151,9 @@ class PostCreate(BaseModel):
     outfit_image_url: str
     caption: str = Field(max_length=1000)
     product_ids: list[str] = Field(default_factory=list)
+
+
+class TryOnRequest(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=8)
+    view: Literal["front", "side"] = "front"
+    recommendation_id: str | None = None

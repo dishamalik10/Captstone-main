@@ -81,7 +81,7 @@ class Settings:
         )
     )
     # Share of the final score given to the item-level compatibility model when installed.
-    outfit_compat_weight: float = float(os.getenv("AURA_OUTFIT_COMPAT_WEIGHT", "0.40"))
+    outfit_compat_weight: float = float(os.getenv("AURA_OUTFIT_COMPAT_WEIGHT", "0.15"))
     # Fine-tuned stylist GGUF from training/AURA_Stylist_LLM_LoRA_Colab.ipynb.
     # Only this fine-tuned model may reorder the ranker's top options; the base
     # chat GGUF never does. Set ENABLED=0 if it fails its evaluation bar.
@@ -97,6 +97,19 @@ class Settings:
     chat_use_stylist: bool = os.getenv("AURA_CHAT_USE_STYLIST", "0") not in {"0", "false", "False"}
     # Personalised contextual-bandit ranking learned from each user's feedback.
     bandit_enabled: bool = os.getenv("AURA_BANDIT_ENABLED", "1") not in {"0", "false", "False"}
+    # Virtual try-on ("My Virtual Look"): local models from training/download_tryon_models.py.
+    tryon_model_dir: Path = Path(os.getenv("AURA_TRYON_MODEL_DIR", ROOT / "model_artifacts" / "tryon"))
+    tryon_enabled: bool = os.getenv("AURA_TRYON_ENABLED", "1") not in {"0", "false", "False"}
+    # Render size (multiple of 8, 3:4). 512x384 keeps a render to a few minutes on an 8 GB Mac.
+    tryon_height: int = int(os.getenv("AURA_TRYON_HEIGHT", "512"))
+    tryon_width: int = int(os.getenv("AURA_TRYON_WIDTH", "384"))
+    tryon_steps: int = int(os.getenv("AURA_TRYON_STEPS", "30"))
+    tryon_guidance: float = float(os.getenv("AURA_TRYON_GUIDANCE", "2.5"))
+    # "auto" picks Apple Metal (mps) when available, else CPU.
+    tryon_device: str = os.getenv("AURA_TRYON_DEVICE", "auto")
+    # CatVTON attention weights: dresscode-16k-512 (tops, bottoms, dresses; trained at 512x384),
+    # vitonhd-16k-512 (tops only) or mix-48k-1024 (trained at 1024x768).
+    tryon_attention: str = os.getenv("AURA_TRYON_ATTENTION", "dresscode-16k-512")
     max_upload_bytes: int = int(os.getenv("AURA_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
     allowed_origins: tuple[str, ...] = tuple(
         value.strip()

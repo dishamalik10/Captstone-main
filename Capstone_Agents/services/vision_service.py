@@ -27,6 +27,49 @@ ACCESSORY_HINTS = {
 }
 
 
+FOOTWEAR_NAMES = FOOTWEAR_HINTS | {
+    "Ballerinas", "Bootie", "Flat shoes", "Flip flop", "Heeled sandals",
+    "Moccasins", "Pumps", "Wedge", "Shoes", "Loafers", "Trainers",
+}
+TOP_NAMES = {
+    "Blouse", "Bodysuit", "Cardigan", "Hoodie", "Polo shirt", "Shirt",
+    "Sweater", "T-shirt", "Top", "Vest top", "Tank top", "Sweatshirt", "Tunic",
+}
+# Everyday names people type when renaming a garment in the app.
+EXTRA_NAMES = {
+    "jeans": "Bottom", "pants": "Bottom", "trouser": "Bottom", "leggings": "Bottom",
+    "jumpsuit": "Dress", "playsuit": "Dress", "gown": "Dress", "saree": "Dress",
+    "kurta": "Top", "tee": "Top", "jumper": "Top", "crop top": "Top",
+    "shrug": "Outerwear", "overcoat": "Outerwear", "trench": "Outerwear",
+}
+
+
+def category_for_name(name: str | None) -> str | None:
+    """Category implied by a garment type name, or None when the name is not a known type.
+
+    Used when a user renames an item: "Skirt" must make it a Bottom even if the
+    CNN first filed the photo under Footwear.
+    """
+    if not name:
+        return None
+    key = name.strip().lower()
+    for names, category in (
+        (OUTERWEAR, "Outerwear"), (DRESSES, "Dress"), (BOTTOMS, "Bottom"),
+        (FOOTWEAR_NAMES, "Footwear"), (ACCESSORY_HINTS, "Accessory"), (TOP_NAMES, "Top"),
+    ):
+        if key in {n.lower() for n in names}:
+            return category
+    if key in EXTRA_NAMES:
+        return EXTRA_NAMES[key]
+    if "dress" in key:
+        return "Dress"
+    if key.rstrip("s") in {"skirt", "short", "trouser", "jean", "pant", "legging"}:
+        return "Bottom"
+    if key.rstrip("s") in {"blazer", "coat", "jacket"}:
+        return "Outerwear"
+    return None
+
+
 def map_category(product_type: str, garment_group: str) -> str:
     if product_type in OUTERWEAR:
         return "Outerwear"

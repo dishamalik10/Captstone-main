@@ -1,5 +1,5 @@
 import { api, resolveApiUrl } from './api';
-import type { ChatMessage, ClothingCategory, ClothingItem, Occasion, Outfit, Product, SocialPost, User, WardrobeStats, Weather, SellerStats, SellerListing, SellerOrder, WearLog, StyleAnalysis, PurchaseImpact } from '@/types';
+import type { ChatMessage, ClothingCategory, ClothingItem, Occasion, Outfit, Product, SocialPost, User, WardrobeStats, Weather, SellerStats, SellerListing, SellerOrder, WearLog, StyleAnalysis, PurchaseImpact, AvatarView, BodyAnalysis, TryOnRender, TryOnStatus, VirtualAvatar } from '@/types';
 import { Platform } from 'react-native';
 
 export interface UploadAsset {
@@ -329,5 +329,130 @@ export const weatherService = {
 export const activityService = {
   async getWearLogs() {
     return (await api.get<WearLog[]>('/activity/wear-logs')).data;
+  },
+};
+
+// -- My Virtual Look: avatar + virtual try-on ----------------------------------------
+interface ApiAvatar {
+  avatar_id: string;
+  view: AvatarView;
+  image_url: string;
+  analysis: Record<string, any>;
+  created_at: string;
+}
+
+interface ApiRender {
+  render_id: string;
+  status: TryOnRender['status'];
+  stage: string;
+  progress: number;
+  item_ids: string[];
+  recommendation_id?: string | null;
+  image_url?: string | null;
+  not_rendered: string[];
+  error?: string | null;
+  saved: boolean;
+  view?: AvatarView;
+  disclaimer: string;
+  created_at: string;
+}
+
+function mapAnalysis(raw: Record<string, any>): BodyAnalysis | undefined {
+  if (!raw || !raw.body_shape) return undefined;
+  return {
+    bodyShape: raw.body_shape,
+    bodyShapeReason: raw.body_shape_reason,
+    confidence: raw.confidence,
+    ratios: {
+      shoulderToHip: raw.ratios?.shoulder_to_hip,
+      waistToHip: raw.ratios?.waist_to_hip,
+      waistToShoulder: raw.ratios?.waist_to_shoulder,
+      torsoToLeg: raw.ratios?.torso_to_leg,
+    },
+    torsoLength: raw.torso_length,
+    skinTone: raw.skin_tone
+      ? { tone: raw.skin_tone.tone, sampleHex: raw.skin_tone.sample_hex, note: raw.skin_tone.note }
+      : null,
+    warnings: raw.warnings ?? [],
+    method: raw.method,
+  };
+}
+
+function mapAvatar(raw: ApiAvatar): VirtualAvatar {
+  return {
+    id: raw.avatar_id,
+    view: raw.view,
+    imageUrl: resolveApiUrl(raw.image_url),
+    analysis: mapAnalysis(raw.analysis),
+    createdAt: raw.created_at,
+  };
+}
+
+function mapRender(raw: ApiRender): TryOnRender {
+  return {
+    id: raw.render_id,
+    status: raw.status,
+    stage: raw.stage,
+    progress: raw.progress,
+    itemIds: raw.item_ids,
+    recommendationId: raw.recommendation_id,
+    imageUrl: raw.image_url ? resolveApiUrl(raw.image_url) : undefined,
+    notRendered: raw.not_rendered ?? [],
+    error: raw.error,
+    saved: raw.saved,
+    view: raw.view,
+    disclaimer: raw.disclaimer,
+    createdAt: raw.created_at,
+  };
+}
+
+export const tryonService = {
+  async getAvatars(): Promise<{ avatars: Partial<Record<AvatarView, VirtualAvatar>>; status: TryOnStatus }> {
+    const { data } = await api.get<{ avatars: Record<string, ApiAvatar>; status: Record<string, any> }>('/avatar');
+    const avatars: Partial<Record<AvatarView, VirtualAvatar>> = {};
+    Object.values(data.avatars).forEach((avatar) => { avatars[avatar.view] = mapAvatar(avatar); });
+    return {
+      avatars,
+      status: {
+        enabled: data.status.enabled,
+        bodyAnalysisReady: data.status.body_analysis_ready,
+        tryonReady: data.status.tryon_ready,
+        missingFiles: data.status.missing_files ?? [],
+        disclaimer: data.status.disclaimer,
+        queueLength: data.status.queue_length ?? 0,
+      },
+    };
+  },
+  async uploadAvatar(asset: UploadAsset, view: AvatarView): Promise<VirtualAvatar> {
+    const form = new FormData();
+    form.append('view', view);
+    const name = asset.fileName || `body-${Date.now()}.jpg`;
+    if (Platform.OS === 'web') {
+      const blob = asset.file ?? await (await fetch(asset.uri)).blob();
+      form.append('file', blob, name);
+    } else {
+      form.append('file', { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' } as unknown as Blob);
+    }
+    return mapAvatar((await api.post<ApiAvatar>('/avatar', form)).data);
+  },
+  async deleteAvatars() {
+    await api.delete('/avatar');
+  },
+  async startRender(itemIds: string[], view: AvatarView, recommendationId?: string): Promise<TryOnRender> {
+    const { data } = await api.post<ApiRender>('/tryon', {
+      item_ids: itemIds,
+      view,
+      recommendation_id: recommendationId,
+    });
+    return mapRender(data);
+  },
+  async getRender(id: string): Promise<TryOnRender> {
+    return mapRender((await api.get<ApiRender>(`/tryon/${encodeURIComponent(id)}`)).data);
+  },
+  async saveRender(id: string, saved = true): Promise<TryOnRender> {
+    return mapRender((await api.post<ApiRender>(`/tryon/${encodeURIComponent(id)}/save`, null, { params: { saved } })).data);
+  },
+  async savedLooks(): Promise<TryOnRender[]> {
+    return (await api.get<ApiRender[]>('/tryon/saved')).data.map(mapRender);
   },
 };

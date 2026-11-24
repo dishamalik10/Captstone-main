@@ -135,8 +135,7 @@ flowchart TD
 12. Style analysis and wardrobe-gap detection.
 13. Purchase-impact analysis for deciding whether a new item adds value.
 14. Profile, appearance, and activity-history screens.
-
-The removed avatar/virtual try-on prototype is not part of the current system.
+15. **My Virtual Look:** a personal avatar from one full-body photo, approximate body-proportion analysis, and AI virtual try-on of the Stylist's outfits on that avatar (Section 14a).
 
 ## 7. End-to-End Workflow
 
@@ -279,7 +278,7 @@ The SHIFT15M model only sees garment categories. The main compatibility signal i
 | Disjoint test | Compatibility AUC | **0.815** | 0.652 | 0.5 |
 | Disjoint test | Fill-in-the-blank accuracy | **0.479** | 0.395 | 0.25 |
 
-Its score carries 40% of the prior ranking score (Section 12.10). One observed limitation: it scores single-garment outfits (a dress alone) much lower than multi-piece outfits, plausibly because Polyvore outfits usually contain several items, which is one reason the hand-tuned prior repeated the same top-and-bottom outfit across occasions and motivated the personalised layer.
+Its score carries 15% of the prior ranking score (Section 12.10). It does not know the occasion, and it scored single-garment outfits (a dress alone) near zero, plausibly because Polyvore outfits always contain several items. Both pushed the same top-and-bottom outfit to first place for every occasion. Single-piece outfits are therefore scored with the category-level model instead, and the transformer's weight was lowered from 40% to 15% while the occasion score's weight rose (Section 12.9). On the developer's own wardrobe (phone photos on a tiled floor, unlike Polyvore's white-background product images) it scored every combination with one black skirt near 85 and every combination with jeans near 45, including a plain cami with jeans, which suggests domain shift; at 15% it acts as a tie-breaker.
 
 ## 10. Agentic Recommendation Architecture
 
@@ -353,44 +352,17 @@ This is an interpretable palette heuristic, not a universal law of colour theory
 
 ### 12.2 Occasion Score `O`
 
-Let:
+Each occasion maps to a group: formal (meeting, office, work, interview), evening (date, party, festival, concert), wedding, active (gym, workout, sport) or casual (everything else, including travel). Every garment type has a fit `g ∈ [−3, +3]` for each group, looked up by subcategory and falling back to the category; for example a blazer is +3 formal and −1 casual, a skirt +3 evening, a dress +3 evening and wedding, shorts −3 formal and wedding, a T-shirt −2 formal and +3 casual.
 
-- `F` = formal-item count
-- `K` = casual-item count
-- `P` = sport-item count
-- `D` = 1 when a dress is present, otherwise 0
-- `J` = 1 when outerwear is present, otherwise 0
-- `A` = 1 when an accessory is present, otherwise 0
-
-Formal occasions such as work, office, meeting, interview, formal event, or wedding:
+With weight `w = 1` for core pieces (dress, top, bottom, and also outerwear for formal occasions and weddings, where the layer is what makes a look formal) and `w = 0.5` for other add-ons:
 
 ```text
-O = min(100, 55 + 12F - 7K)
+O = 60 + 15 × Σ(w·g) / Σw        (clipped to 0–100)
 ```
 
-Gym, workout, or sport:
+Style tags adjust the score: formal words (tailored, suit) add 4 for formal occasions; casual words (casual, denim) subtract 4 there and add 4 for casual ones; evening words (lace, sequin, party, evening) subtract 12 each for formal occasions and add 4 for dates and parties. Each garment whose occasion tags match the occasion adds 6 (at most 18); a core piece tagged only for other occasions subtracts 12 and an add-on 6 (at most 30).
 
-```text
-O = min(100, 55 + 15P - 5F)
-```
-
-Date:
-
-```text
-O = min(100, 66 + 6F + 16D + 5J + 4A - 5K)
-```
-
-Party or festival:
-
-```text
-O = min(100, 68 + 7F + 10D)
-```
-
-Casual/default context:
-
-```text
-O = min(100, 72 + 5K)
-```
+An earlier version counted formal and casual keywords in the garment names. It barely separated occasions: "T-shirt" contains "shirt" and counted as formal, and skirts, shorts and dresses were not judged per occasion. Together with `O`'s former 10% share of the total, the same outfit came first for dates, meetings and parties.
 
 ### 12.3 Weather Score `W`
 
@@ -404,6 +376,7 @@ Adjustments include:
 
 - At `temperature ≥ 30°C`, heavy coat, wool, fleece, sweater, or jacket: `−30`.
 - At `temperature ≥ 30°C`, shorts, T-shirt, dress, or sandals: `+10`.
+- At `22°C ≤ temperature < 30°C`, a warm outer layer (fleece, wool, sherpa, down, fur): `−45`, which puts it below the critic's 45-point floor so it is not offered; any other non-blazer outer layer: `−8`.
 - At `temperature ≤ 15°C`, coat, jacket, sweater, knitwear, or boots: `+12`.
 - At `temperature ≤ 15°C` without warm items: `−18`.
 - During rain, drizzle, or storm, sandals, suede, or slippers: `−22`.
@@ -516,25 +489,25 @@ Trend data is cached for 12 hours and receives a small final weight so unreliabl
 Three smaller signals are also scored 0–100: pattern coordination `Pt`, silhouette balance `Si` (top/bottom fit contrast) and fabric–weather fit `Fw`; each is 50 when the wardrobe record has no pattern, fit or fabric.
 
 ```text
-R = 0.17C
-  + 0.17O
-  + 0.14W
-  + 0.14P
-  + 0.08F
-  + 0.13LP
-  + 0.05N
-  + 0.03T
-  + 0.03Pt + 0.03Si + 0.03Fw
+R = 0.14C
+  + 0.30O
+  + 0.10W
+  + 0.11P
+  + 0.07F
+  + 0.10LP
+  + 0.04N
+  + 0.02T
+  + 0.04Pt + 0.04Si + 0.04Fw
 ```
 
-The weights sum to 1.00. Colour and occasion have the greatest individual weights, while trends deliberately receive only 3%. These weights are hand-chosen; Section 12.11 describes how they become a learned, per-user policy.
+The weights sum to 1.00. Occasion has the greatest weight so that different occasions produce different outfits, while trends deliberately receive only 2%. These weights are hand-chosen; Section 12.11 describes how they become a learned, per-user policy.
 
 ### 12.10 Final Compatibility-Aware Score `S`
 
 Let `V` be the outfit-compatibility transformer's score (Section 9a). When it is available:
 
 ```text
-S = round(0.60R + 0.40V)
+S = round(0.85R + 0.15V)
 ```
 
 Otherwise, with the SHIFT15M category-level score `M`:
@@ -602,6 +575,29 @@ Trend context uses only explicitly curated local cache data. AURA no longer invo
 
 This optional retrieval component is separate from both neural training and language generation. It does not retrain the CNN, compatibility model, or local language model.
 
+## 14a. My Virtual Look: Avatar and Virtual Try-On
+
+**Workflow.** Full-body photo → body analysis → avatar → AI Stylist outfit → garment rendered onto the avatar → preview, save or try another outfit. Everything runs locally; no photo leaves the server.
+
+| Stage | Model / method | Output |
+|---|---|---|
+| Body parsing | MediaPipe Pose Landmarker (33 landmarks) and Selfie Multiclass segmenter (background, hair, body skin, face skin, clothes, other) | Landmarks and a per-pixel body map |
+| Photo validation | Rules on landmark visibility and person size | Rejects photos with cut-off feet, more than one person, no person, or a person too small; warns when arms touch the body or clothing hides the outline |
+| Avatar | The user's own photo, cut out and framed 3:4 on a plain backdrop (768x1024) | A personal model that keeps the user's real proportions, skin tone and appearance; no body is generated or reshaped |
+| Proportions | Silhouette widths at shoulder, waist (narrowest torso row) and hip (widest row), with hanging arms erased along the pose's arm lines | Shoulder:hip, waist:hip, waist:shoulder and torso:leg ratios; a body-shape label (hourglass, rectangle, pear, apple, inverted triangle) with its rule; skin depth from skin pixels via the Individual Typology Angle; a confidence level |
+| Garment preparation | ISNet background removal on the wardrobe photo | The garment on white, cropped |
+| Try-on mask | Region from the body map and landmarks: upper (torso and arms), lower (hips to ankles, arms excluded) or overall (dress); face, hair, hands and feet protected | Where the model may repaint |
+| Try-on | CatVTON (Chong et al., ICLR 2025): Stable Diffusion 1.5 inpainting UNet with cross-attention removed and CatVTON-tuned self-attention; person and garment latents concatenated along the height axis; 30 DDIM steps, guidance 2.5, fixed seed | The garment drawn onto the user's photo |
+| Layering | Bottom → top → outer layer, each pass on the previous result; a dress replaces top and bottom; shoes and accessories are listed as not drawn | A complete outfit |
+
+**Engineering for an 8 GB Mac.** Each layer is rendered on a 3:4 crop around its mask, then pasted back, which gives the model several times more pixels on the garment than rendering the whole full-body avatar at 512x384. Attention is sliced and the two classifier-free-guidance passes run one after the other, because the full attention matrix over the concatenated latents (about 1.2 GB per layer) did not fit beside the chat model (the first attempt failed with a Metal out-of-memory error). Renders run one at a time on a background worker, are cached per avatar, outfit and settings, and the model is unloaded after 10 idle minutes.
+
+**Weight choice (observed on this machine).** With the `mix-48k-1024` weights (trained at 1024x768) rendered at 512x384, a pleated mini skirt came out as ankle-length leggings, a cropped sweater as a shawl over invented patterns, and a blazer as a noisy vest. The `dresscode-16k-512` weights, trained at 512x384 on DressCode (upper, lower and dresses), rendered the same three garments recognisably: a pleated mini with bare legs, a long-sleeved knit in the right magenta, and a lapelled blazer. These are visual checks on a few garments, not a quantitative evaluation (no FID/SSIM or user study was run).
+
+**What it is not.** The render is a generated visual preview: it shows colour, print, sleeve length, neckline and overall silhouette, but there is no 3D body, cloth simulation or garment size, so it says nothing reliable about fit. The app states this under every look. Fine prints blur at 512x384, a closed jacket hides the top beneath it, colours can drift slightly, and the side view reuses the same 2D method on a side photo. On the development Mac a render takes about 5 minutes for the first garment (model load and Metal warm-up) and about 1.5 minutes for each further garment.
+
+**Privacy.** Body photos, avatars and looks are stored only in the local upload directory, served only through 15-minute signed links checked against the owning row, and never sent to an external service; the body-parsing map is never served. `DELETE /avatar` removes the photos, avatar and every look.
+
 ## 15. Database Design
 
 The local SQLite database contains the main application entities:
@@ -616,6 +612,8 @@ The local SQLite database contains the main application entities:
 | `bandit_models` | Each user's contextual-bandit posterior (precision matrix, vector, visual-taste memory) |
 | `sessions` | Application/authentication session information |
 | `chat_messages` | Persistent AI chat history |
+| `avatars` | Each user's avatar per view (front/side): avatar image, body-parsing map, landmarks and proportion analysis |
+| `tryon_renders` | Virtual try-on jobs: outfit, status/progress, result image, cache key, saved flag |
 | `products`, `orders` | Supporting commerce-domain records inherited from the combined project |
 | `social_posts`, `post_likes`, `follows` | Supporting social-domain records inherited from the combined project |
 
@@ -638,6 +636,7 @@ The FastAPI backend provides endpoints for:
 - Current trend retrieval
 - Style analysis and wardrobe gaps
 - Purchase-impact analysis
+- Avatar creation, retrieval and deletion (`/avatar`), virtual try-on jobs (`/tryon`, `/tryon/{id}`, `/tryon/{id}/save`, `/tryon/saved`) and try-on model status (`/tryon/status`)
 
 Interactive OpenAPI documentation is available at `/docs` while the backend is running.
 
@@ -748,11 +747,11 @@ AURA's novelty is not a single new neural architecture. Its contribution is the 
 - The chat model (Qwen2.5-3B) is an open model used without fine-tuning; it occasionally mentions a piece that is not in the shown outfit. Chat occasion detection uses English keywords only, replies are in English, and the stylist picker does not see free-text wishes such as "bolder".
 - On the 8 GB development Mac, the 3B chat model and the 1 GB stylist together cause heavy swap use and 9–17 s chat replies.
 - “Fashion sense” remains subjective and context-dependent.
-- Skin tone and body/sizing preferences are user-provided contextual features, not accurate computer-vision measurements.
+- Skin tone and body/sizing preferences are user-provided contextual features. My Virtual Look can suggest them from a photo, but those are approximate 2D estimates (clothing, pose, camera angle and lighting shift them), never measurements, and are applied only when the user chooses to.
 - Live weather depends on optional OpenWeather access (chat currently assumes 25 °C and unknown conditions); core stylist language runs through local model files, and small local models may provide weaker responses than larger systems.
 - Local SQLite and file storage are suitable for a capstone but need migration for a multi-server production deployment.
 - A high recommendation score is not a probability that every user or stylist will approve the outfit.
-- The project does not currently provide a photorealistic virtual try-on or fit/drape simulation.
+- Virtual try-on is a generated visual preview on the user's photo, not a fit or drape simulation; fine prints blur at the 512x384 render size and a render takes minutes on an 8 GB laptop. CatVTON weights are licensed CC BY-NC-SA 4.0 (non-commercial use only).
 
 ## 21. Future Research and Development
 

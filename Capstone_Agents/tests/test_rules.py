@@ -7,7 +7,7 @@ from services.recommendation_service import (
     silhouette_balance_score,
     weather_score,
 )
-from services.vision_service import map_category
+from services.vision_service import category_for_name, map_category
 from services.compatibility_service import learned_compatibility_score
 
 
@@ -130,3 +130,40 @@ def test_shift15m_model_scores_supported_outfit_pair():
     ])
     assert score is not None
     assert 0 <= score <= 100
+
+
+def test_renamed_garment_takes_the_category_of_its_new_name():
+    # A photo first classified as shoes and renamed "Skirt" must be used as a bottom.
+    assert category_for_name("Skirt") == "Bottom"
+    assert category_for_name("coat") == "Outerwear"
+    assert category_for_name("jeans") == "Bottom"
+    assert category_for_name("My favourite") is None
+
+
+def test_occasion_changes_which_outfit_wins():
+    dress = [item("Dress", "Black", "Dress")]
+    skirt_look = [item("Top", "Black", "Top"), item("Skirt", "Black", "Bottom")]
+    tee_shorts = [item("T-shirt", "Red", "Top"), item("Shorts", "Blue", "Bottom")]
+    blazer_look = [*skirt_look, item("Blazer", "Navy", "Outerwear")]
+    jacket_look = [*skirt_look, item("Jacket", "Brown", "Outerwear")]
+    assert occasion_score(dress, "date") > occasion_score(tee_shorts, "date")
+    assert occasion_score(skirt_look, "date") > occasion_score(tee_shorts, "date")
+    assert occasion_score(dress, "wedding") > occasion_score(skirt_look, "wedding")
+    assert occasion_score(blazer_look, "meeting") > occasion_score(jacket_look, "meeting")
+    assert occasion_score(tee_shorts, "casual") > occasion_score(blazer_look, "casual")
+
+
+def test_lace_party_dress_is_not_a_meeting_outfit_even_with_a_blazer():
+    blazer = {**item("Blazer", "Black", "Outerwear", style_tags=["tailored"]), "occasion_tags": ["meeting"]}
+    party_dress = {**item("Dress", "Red", "Dress", style_tags=["lace", "evening"]), "occasion_tags": ["party", "date"]}
+    knit = {**item("Sweater", "Pink", "Top"), "occasion_tags": []}
+    skirt = {**item("Skirt", "Black", "Bottom"), "occasion_tags": []}
+    assert occasion_score([knit, skirt, blazer], "meeting") > occasion_score([party_dress, blazer], "meeting")
+    assert occasion_score([party_dress], "party") > occasion_score([knit, skirt, blazer], "party")
+
+
+def test_warm_layer_is_ruled_out_in_mild_weather():
+    top, shorts = item("T-shirt", "White", "Top"), item("Shorts", "Blue", "Bottom")
+    sherpa = item("Jacket", "Brown", "Outerwear", fabric="fleece")
+    assert weather_score([top, shorts, sherpa], 25, "Clear") < 45  # below the critic's floor
+    assert weather_score([top, shorts], 25, "Clear") > weather_score([top, shorts, sherpa], 25, "Clear")

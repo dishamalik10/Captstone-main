@@ -230,3 +230,52 @@ export interface WearLog {
   outfitName: string;
   date: string;
 }
+
+// -- My Virtual Look ------------------------------------------------------------------
+export type AvatarView = 'front' | 'side';
+
+export interface BodyAnalysis {
+  bodyShape: BodyShape;
+  bodyShapeReason: string;
+  confidence: 'low' | 'medium';
+  ratios: { shoulderToHip: number; waistToHip: number; waistToShoulder: number; torsoToLeg: number };
+  torsoLength: 'short' | 'balanced' | 'long';
+  skinTone?: { tone: SkinTone; sampleHex: string; note: string } | null;
+  warnings: string[];
+  method: string;
+}
+
+export interface VirtualAvatar {
+  id: string;
+  view: AvatarView;
+  imageUrl: string;
+  analysis?: BodyAnalysis;
+  createdAt: string;
+}
+
+export interface TryOnStatus {
+  enabled: boolean;
+  bodyAnalysisReady: boolean;
+  tryonReady: boolean;
+  missingFiles: string[];
+  disclaimer: string;
+  queueLength: number;
+}
+
+export type TryOnState = 'queued' | 'running' | 'done' | 'failed';
+
+export interface TryOnRender {
+  id: string;
+  status: TryOnState;
+  stage: string;
+  progress: number;
+  itemIds: string[];
+  recommendationId?: string | null;
+  imageUrl?: string;
+  notRendered: string[];
+  error?: string | null;
+  saved: boolean;
+  view?: AvatarView;
+  disclaimer: string;
+  createdAt: string;
+}

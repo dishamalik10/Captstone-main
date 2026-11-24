@@ -15,17 +15,23 @@ Expo app → FastAPI
   chat    → occasion from the message → same pipeline → stylist picks the outfit
           → Qwen2.5-3B Instruct writes the reply; the app shows every piece's photo
   feedback (like / dislike / save / wear / skip) → updates that user's bandit instantly
+  try-on  → full-body photo → MediaPipe pose + body segmentation → avatar (your own photo
+            on a plain backdrop) + approximate proportions → Stylist outfit → garment
+            cut-out (ISNet) → CatVTON diffusion try-on, one garment layer at a time
 ```
 
 | Component | What it does | Trained by this project? |
 |---|---|---|
 | **Garment CNN** (`fashion_cnn_final.keras`) | Category, type and colour of an uploaded photo, plus a visual embedding | Yes — H&M images, ~80% product-type validation accuracy |
-| **Outfit-compatibility transformer** (`model_artifacts/outfit_compat/`) | Scores how well an outfit's pieces go together from their CNN embeddings (40% of the prior score) | Yes — Polyvore Outfits, compatibility AUC 0.865 |
+| **Outfit-compatibility transformer** (`model_artifacts/outfit_compat/`) | Scores how well an outfit's pieces go together from their CNN embeddings (15% of the prior score) | Yes — Polyvore Outfits, compatibility AUC 0.865 |
 | **SHIFT15M compatibility model** | Category-level fallback if the transformer is unavailable | Yes — SHIFT15M, ROC-AUC 0.775 |
 | **Contextual bandit** (`services/bandit_ranker.py`) | Personalised ranking learned online from each user's reactions | Yes — learns per user at run time (no offline training step) |
 | **Fine-tuned stylist** (`aura-stylist-q4_k_m.gguf`) | Picks one of the top 5 outfits on the Stylist screen and in chat, with a reason | Yes — LoRA on Qwen2.5-1.5B, 84% vs 39% base on held-out Polyvore choice |
 | **Qwen2.5-3B Instruct** (`qwen2.5-3b-instruct-q4_k_m.gguf`) | Writes chat replies as a stylist that knows the wardrobe and the chosen outfit | No — open model used as downloaded |
 | **Scratch AURA GPT** (`aura_fashion_gpt_final/`) | Optional per-outfit explanation on the Stylist screen | Architecture and Colab notebook only; weights are not in the repository |
+| **MediaPipe Pose Landmarker + Selfie Multiclass** | Body landmarks and hair/skin/clothes segmentation for the avatar, proportions and try-on masks | No — Google models (Apache 2.0) |
+| **ISNet** (`isnet-general-use.onnx`) | Cuts garments out of flat-lay photos before try-on | No — rembg release (MIT) |
+| **CatVTON** (`dresscode-16k-512` on SD 1.5 inpainting) | Renders a wardrobe garment onto the user's photo | No — Chong et al., ICLR 2025 (CC BY-NC-SA 4.0, non-commercial); compact re-implementation in `ml/catvton.py` |
 
 Rules that hold regardless of model:
 
@@ -52,7 +58,7 @@ Outfit ranking is framed as a contextual bandit, the reinforcement-learning sett
 
 Features (53): the 12 ranker signals (colour, occasion, weather, preferences, feedback, learned preference, novelty, trend, pattern, silhouette, fabric, learned compatibility); 8 style descriptors (dress, layered, dark / light / colourful share, patterned share, piece count, footwear) once globally and once per occasion group (formal, evening, casual, active), so "dark looks for dates" is learned separately from "light looks for the office"; and a visual-taste feature, the similarity of the outfit's CNN embeddings to what the user liked minus what they disliked.
 
-The prior mean is the hand-tuned weighting (60% rule signals, 40% compatibility) with high prior precision on those signals and low precision on the personal style features, so the model starts from the original ranker and learns personal taste quickly. Each reaction (`POST /feedback`, the chat card's Like / Not for me / Wore it buttons, or the Stylist screen's swipes) updates that user's posterior in `bandit_models`; nothing is shared between users. The `/recommend` trace reports `contextual_bandit_thompson_sampling_then_diversity_rerank` once a user's model is active.
+The prior mean is the hand-tuned weighting (85% rule signals, 15% compatibility) with high prior precision on those signals and low precision on the personal style features, so the model starts from the original ranker and learns personal taste quickly. Each reaction (`POST /feedback`, the chat card's Like / Not for me / Wore it buttons, or the Stylist screen's swipes) updates that user's posterior in `bandit_models`; nothing is shared between users. The `/recommend` trace reports `contextual_bandit_thompson_sampling_then_diversity_rerank` once a user's model is active.
 
 **Evaluation with simulated users** (`python -m training.evaluate_bandit`, about 10 s; writes `model_artifacts/bandit_evaluation.json` and `bandit_learning_curve.svg`). Four hidden tastes × 15 users × 40 rounds, synthetic wardrobes, every outfit ranked each round as in the app, real candidate generator and rule scorers:
 
@@ -113,12 +119,14 @@ No OpenAI, Gemini, Claude or other LLM API keys are needed.
 | Fine-tuned stylist GGUF (`aura-stylist-q4_k_m.gguf`, ~1 GB) | Picks the #1 outfit on the Stylist screen and in chat | `python -m training.download_stylist_model` (GitHub Release, SHA-256 verified) |
 | Qwen2.5-3B Instruct GGUF (~2.1 GB) | Writes chat replies | `python -m training.download_model` (Hugging Face; `… download_model 1.5b` for the lighter 1.5B) |
 | Scratch AURA GPT (`model_artifacts/aura_fashion_gpt_final/`) | Optional per-outfit explanations | Train with `training/AURA_Scratch_Fashion_LM_Colab.ipynb` and copy the folder in |
+| Try-on models (~2.4 GB: SD 1.5 inpainting UNet fp16, VAE, CatVTON weights, MediaPipe, ISNet) | My Virtual Look: avatar, body analysis and virtual try-on | `python -m training.download_tryon_models` (resumable, 8 parallel connections) |
 
 From `Capstone_Agents` with the virtual environment active:
 
 ```bash
 python -m training.download_stylist_model   # fine-tuned stylist, from the stylist-llm-v1 release
 python -m training.download_model           # Qwen2.5-3B chat model
+python -m training.download_tryon_models    # My Virtual Look (optional)
 ```
 
 Both GGUFs land in `model_artifacts/llm/`, which is git-ignored. If you prefer a browser, download `aura-stylist-q4_k_m.gguf` from the repository's **Releases** page (tag `stylist-llm-v1`) and place it at `Capstone_Agents/model_artifacts/llm/aura-stylist-q4_k_m.gguf`.
@@ -158,6 +166,7 @@ Set `EXPO_PUBLIC_API_URL` in `Capstone-App/.env`: `http://127.0.0.1:8000` for we
 4. **AI Stylist** (`/recommend`): the ranker builds complete outfits from your own clothes, the outfit-compatibility model and your personal bandit score them, the fine-tuned stylist picks #1 and explains why. Each card shows every piece together. The response's `agent_trace` shows which model did what.
 5. **Chat** (`/chat/messages`): ask for an outfit for an occasion ("outfit for a date", "kal office ke liye kya pehnu?") or any styling question. The stylist picks the outfit, Qwen2.5-3B explains it, and the card shows all pieces.
 6. **React** with Like / Not for me / Wore it under a chat outfit (or swipe on the Stylist screen). Your ranking adapts immediately; `/models/personalisation/status` shows what it has learned.
+7. **My Virtual Look** (Profile → My virtual look, or **Try it on me** under a Stylist outfit): upload one full-body photo (`POST /avatar`). AURA frames your own photo as your avatar and estimates approximate proportions (shoulder:hip, waist:hip, torso:leg), a body-shape label and skin depth, which you can copy into your style profile. Each Stylist outfit is then rendered on the avatar (`POST /tryon`, polled at `GET /tryon/{id}`): bottom, then top, then outer layer, or a dress as one garment. Renders are cached per avatar and outfit; **Save look** stores it and counts as a "save" for your ranking. An optional side photo renders the same outfits side-on. `DELETE /avatar` removes your photos and every look.
 
 ### 7. Verify the install
 
@@ -228,6 +237,8 @@ python /path/to/llama.cpp/convert_hf_to_gguf.py training/checkpoints/aura-merged
 Point `AURA_LLM_MODEL_PATH` at the resulting GGUF. GPU RAM or Apple Metal build compatibility may constrain local fine-tuning; the pipeline can instead run on a suitable training host. No metrics are asserted until you actually run evaluation. The evaluation command records held-out metrics in its output file; it does not create a performance claim in the repository.
 
 ## Behavior and limitations
+
+- **My Virtual Look is a generated visual preview, not a fit simulation.** CatVTON repaints the garment area of your photo to show colour, print, sleeve length, neckline and overall silhouette. It has no 3D body, cloth physics or garment sizes, so it cannot tell you whether something fits; the app shows this disclaimer under every look. Fine prints (pinstripes, small logos) blur at the 512x384 render size; a closed jacket hides the top beneath it; shoes and accessories are not drawn; colours can drift slightly. Body proportions are 2D estimates from one front photo (clothing, pose and camera angle shift them) and are reported as ratios with a confidence level, never as measurements. On the 8 GB development Mac a render takes about 5 minutes for the first garment (model load and Metal warm-up) and about 1.5 minutes for each further garment; avatar creation takes under a second. Garment labels come from the CNN, so a mislabelled item (e.g. a skirt filed as shoes) is layered wrongly until it is corrected in the wardrobe.
 
 - `/recommend` is ranked over the authenticated user's available wardrobe by the hand-tuned prior until the user gives feedback, then by their contextual bandit. If the fine-tuned stylist is installed and enabled, it may move one of the top five options to #1 (by option number only). When the scratch model directory exists, it explains each outfit from the selected garments, occasion, weather and saved preferences only; a strict parser requires the exact selected ID list and the keys `item_ids` and `explanation`, and invalid output falls back to the evidence-grounded rule explanation. Check the response's `agent_trace` and each recommendation's `explanation_source`.
 - `/chat/messages`: for outfit requests the occasion is detected from English keywords (date, meeting, office, travel, party, wedding, …; otherwise "casual"), the fine-tuned stylist picks among the top 5 (falling back to the chat model, then the ranker), and Qwen2.5-3B writes a free-form reply. Replies are not filtered sentence by sentence; a reply that pairs a dress with separates is regenerated once. Missing/broken model files produce an actionable 503; generation errors are not hidden by a deterministic or hosted fallback.

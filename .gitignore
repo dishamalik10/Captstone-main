@@ -33,6 +33,7 @@
 
 # Downloaded local model weights, private datasets, checkpoints, and run outputs
 /Capstone_Agents/model_artifacts/llm/
+/Capstone_Agents/model_artifacts/tryon/
 /Capstone_Agents/training/data/*
 !/Capstone_Agents/training/data/.gitkeep
 /Capstone_Agents/training/checkpoints/
@@ -43,3 +44,4 @@
 Thumbs.db
 .vscode/
 
+/Capstone_Agents/.dev-scratch/

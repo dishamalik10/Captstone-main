@@ -6,6 +6,8 @@ import { WardrobeScreen } from '@/screens/wardrobe/WardrobeScreen';
 import { ClothingDetailScreen } from '@/screens/wardrobe/ClothingDetailScreen';
 import { AIStylistScreen } from '@/screens/outfits/AIStylistScreen';
 import { OutfitBuilderScreen } from '@/screens/outfits/OutfitBuilderScreen';
+import { VirtualLookScreen } from '@/screens/outfits/VirtualLookScreen';
+import type { Occasion } from '@/types';
 import { ChatScreen } from '@/screens/chat/ChatScreen';
 import { ProductDetailScreen } from '@/screens/marketplace/ProductDetailScreen';
 import { CartScreen } from '@/screens/marketplace/CartScreen';
@@ -31,6 +33,7 @@ export type MainStackParamList = {
   Tabs: undefined;
   ClothingDetail: { id: string };
   OutfitBuilder: undefined;
+  VirtualLook: { occasion?: Occasion; outfitId?: string } | undefined;
   Chat: undefined;
   ProductDetail: { id: string };
   Cart: undefined;
@@ -99,6 +102,7 @@ export function MainNavigator() {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="ClothingDetail" component={ClothingDetailScreen} />
       <Stack.Screen name="OutfitBuilder" component={OutfitBuilderScreen} />
+      <Stack.Screen name="VirtualLook" component={VirtualLookScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <Stack.Screen name="Cart" component={CartScreen} />

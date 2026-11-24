@@ -8,6 +8,7 @@ from typing import Any
 from database import connection, decode_json_fields, ensure_user, row, rows, utc_now
 from services.item_embeddings import pack_embedding
 from services.media_access import signed_media_url
+from services.vision_service import category_for_name
 
 
 JSON_COLUMNS = {"confidence", "seasons", "style_tags", "occasion_tags"}
@@ -51,6 +52,9 @@ def create_item(
 
 def _public(record: dict[str, Any]) -> dict[str, Any]:
     record.pop("embedding", None)
+    # The garment's type name wins over a stale category (e.g. a photo first
+    # classified as Sneakers and later renamed "Skirt" is a Bottom).
+    record["category"] = category_for_name(record.get("subcategory")) or record["category"]
     record = decode_json_fields(record)
     color_sample = record["confidence"].pop("color_sample", None)
     record["needs_review"] = any(
@@ -90,6 +94,9 @@ def update_item(user_id: str, item_id: str, changes: dict[str, Any]) -> dict[str
     values = {key: value for key, value in changes.items() if key in allowed and value is not None}
     if not values:
         return get_item(user_id, item_id)
+    implied = category_for_name(values.get("subcategory"))
+    if implied:
+        values["category"] = implied
     for key in JSON_COLUMNS:
         if key in values:
             values[key] = json.dumps(values[key])

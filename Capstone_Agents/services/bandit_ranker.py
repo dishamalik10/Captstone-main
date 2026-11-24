@@ -9,8 +9,8 @@ Reinforcement-learning framing
   the posterior (Thompson sampling), so the app keeps exploring outfits it is unsure
   about instead of always repeating the same one.
 
-Cold start: the prior mean reproduces the hand-tuned ranker exactly (60% rule signals,
-40% learned compatibility), so a new user sees the same ranking as before. Every
+Cold start: the prior mean reproduces the hand-tuned ranker exactly (85% rule signals,
+15% learned compatibility), so a new user sees the same ranking as before. Every
 reaction then moves that user's own posterior; nothing is shared between users.
 
 Features (``FEATURE_NAMES``):
@@ -33,13 +33,14 @@ SIGNALS = (
     "color", "occasion", "weather", "preference", "feedback", "learned_preference",
     "novelty", "trend", "pattern", "silhouette", "fabric_weather", "learned_compatibility",
 )
-# The hand-tuned ranker: rule_total * 0.6 + learned_compatibility * 0.4.
+# The hand-tuned ranker: rule_total * 0.85 + learned_compatibility * 0.15.
+# Occasion carries the most weight: the same outfit should not win for a date and a meeting.
 RULE_WEIGHTS = {
-    "color": 0.17, "occasion": 0.17, "weather": 0.14, "preference": 0.14, "feedback": 0.08,
-    "learned_preference": 0.13, "novelty": 0.05, "trend": 0.03, "pattern": 0.03,
-    "silhouette": 0.03, "fabric_weather": 0.03,
+    "color": 0.14, "occasion": 0.30, "weather": 0.10, "preference": 0.11, "feedback": 0.07,
+    "learned_preference": 0.10, "novelty": 0.04, "trend": 0.02, "pattern": 0.04,
+    "silhouette": 0.04, "fabric_weather": 0.04,
 }
-COMPAT_WEIGHT = 0.40
+COMPAT_WEIGHT = 0.15
 PRIOR_SIGNAL_WEIGHTS = {
     **{name: weight * (1.0 - COMPAT_WEIGHT) for name, weight in RULE_WEIGHTS.items()},
     "learned_compatibility": COMPAT_WEIGHT,

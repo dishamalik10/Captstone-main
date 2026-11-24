@@ -183,6 +183,14 @@ export function AIStylistScreen() {
             loading={alternativesMutation.isPending}
             onPress={() => void handleAlternatives()}
           />
+          {currentOutfits[0] && (
+            <Button
+              icon="person-circle-outline"
+              label="Try it on me"
+              onPress={() => (navigation as unknown as { navigate: (name: string, params: object) => void })
+                .navigate('VirtualLook', { occasion, outfitId: currentOutfits[0].id })}
+            />
+          )}
           <Button variant="ghost" icon="construct-outline" label="Build my own" onPress={() => navigation.navigate('OutfitBuilder' as never)} />
         </View>
       </ScrollView>
