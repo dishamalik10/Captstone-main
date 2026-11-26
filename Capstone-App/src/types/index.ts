@@ -55,6 +55,16 @@ export interface ClothingItem {
   needsReview?: boolean;
   subcategory?: string;
   garmentGroup?: string;
+  /** Shop link the item was imported from, if any. */
+  sourceUrl?: string;
+  sourceTitle?: string;
+  /** True when AURA removed a model/background so only the garment remains. */
+  garmentCutout?: boolean;
+}
+
+/** A wardrobe item that has never been marked as worn. */
+export interface DonationCandidate extends ClothingItem {
+  daysInWardrobe: number;
 }
 
 export interface Outfit {
@@ -102,9 +112,12 @@ export interface Seller {
   id: string;
   name: string;
   avatarUrl: string;
-  rating: number;
-  responseTime: string;
+  /** Orders this seller has shipped or completed. */
+  sales: number;
+  memberSince: string;
 }
+
+export type ListingStatus = 'active' | 'paused' | 'sold';
 
 export interface Product {
   id: string;
@@ -115,9 +128,12 @@ export interface Product {
   condition: ProductCondition;
   seller: Seller;
   description: string;
+  size: string;
+  brand: string;
+  status: ListingStatus;
+  createdAt: string;
+  wardrobeItemId?: string | null;
   isNew?: boolean;
-  rating: number;
-  reviewCount: number;
 }
 
 export interface CartItem {
@@ -154,6 +170,8 @@ export interface Weather {
   condition: string;
   icon: string;
   location: string;
+  /** Which season's clothes suit this temperature (from the backend). */
+  season?: 'Summer' | 'Winter' | 'Mild';
 }
 
 export interface WardrobeStats {
@@ -203,26 +221,63 @@ export interface PurchaseImpact {
   disclaimer: string;
 }
 
+export type OrderStatus = 'pending' | 'shipped' | 'completed' | 'cancelled';
+export type PaymentMethod = 'cod' | 'upi';
+
+export interface ShippingAddress {
+  name: string;
+  phone: string;
+  line1: string;
+  city: string;
+  pincode: string;
+}
+
+export interface MarketOrder {
+  id: string;
+  productId: string;
+  productTitle: string;
+  imageUrl: string;
+  amount: number;
+  status: OrderStatus;
+  date: string;
+  updatedAt: string;
+  buyer: { id: string; name: string };
+  seller: { id: string; name: string };
+  shippingAddress: Partial<ShippingAddress>;
+  paymentMethod: PaymentMethod;
+}
+
 export interface SellerStats {
   totalSales: number;
   revenue: number;
   activeListings: number;
+  pendingOrders: number;
+  unreadMessages: number;
 }
 
-export interface SellerOrder {
-  id: string;
-  productTitle: string;
-  status: 'pending' | 'shipped' | 'completed';
-  amount: number;
-  date: string;
+export interface SellerDashboard {
+  stats: SellerStats;
+  listings: Product[];
+  orders: MarketOrder[];
 }
 
-export interface SellerListing {
+export interface Conversation {
   id: string;
-  title: string;
-  price: number;
-  imageUrl: string;
-  status: 'active' | 'paused';
+  role: 'buyer' | 'seller';
+  product: { id: string; title: string; price: number; imageUrl: string; status: ListingStatus };
+  otherUser: { id: string; name: string; avatarUrl: string; online?: boolean };
+  lastMessage: string;
+  lastMessageAt: string;
+  lastMessageMine: boolean;
+  unread: number;
+}
+
+export interface MarketMessage {
+  id: string;
+  body: string;
+  createdAt: string;
+  mine: boolean;
+  read: boolean;
 }
 
 export interface WearLog {

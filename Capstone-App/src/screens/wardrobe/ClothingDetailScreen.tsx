@@ -1,4 +1,5 @@
-import { View, Text, ScrollView, Alert, Platform, Pressable, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import { View, Text, ScrollView, Alert, Platform, Pressable, Linking, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { GradientScrim } from '@/components/shared/GradientScrim';
@@ -11,6 +12,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { AppImage } from '@/components/shared/AppImage';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { useLogWorn } from '@/hooks';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
@@ -26,12 +29,29 @@ export function ClothingDetailScreen() {
   const { removeItem, incrementWearCount, updateItem } = useWardrobeStore();
   const showToast = useToastStore((s) => s.show);
   const userId = useAuthStore((s) => s.user?.id) ?? 'demo-user';
+  const logWorn = useLogWorn();
+  const [confirmWear, setConfirmWear] = useState(false);
+  const [removingModel, setRemovingModel] = useState(false);
   const palette = useThemeColors();
   const { width, height } = useWindowDimensions();
 
   if (!item) {
     return <ScreenWrapper error="Item not found" onRetry={() => navigation.goBack()} />;
   }
+
+  const removeModel = async () => {
+    setRemovingModel(true);
+    try {
+      const updated = await wardrobeService.removeModel(userId, id);
+      updateItem(id, updated);
+      showToast(`Model removed. AURA now reads this as: ${updated.name}`, 'success');
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      showToast(typeof detail === 'string' ? detail : 'Could not remove the model from this photo', 'error');
+    } finally {
+      setRemovingModel(false);
+    }
+  };
 
   const performDelete = async () => {
     try {
@@ -119,13 +139,38 @@ export function ClothingDetailScreen() {
                 variant="secondary"
                 label="Wear today"
                 icon="checkmark"
-                onPress={() => {
-                  incrementWearCount(id);
-                  showToast('Logged to wear history', 'success');
-                }}
+                loading={logWorn.isPending}
+                onPress={() => setConfirmWear(true)}
               />
             </View>
           </View>
+
+          {!item.garmentCutout && (
+            <View className="mt-3">
+              <Button
+                variant="ghost"
+                icon="cut-outline"
+                label={removingModel ? 'Removing model…' : 'Remove model, keep only the garment'}
+                loading={removingModel}
+                onPress={() => void removeModel()}
+              />
+            </View>
+          )}
+
+          {item.sourceUrl && (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={`View ${item.sourceTitle ?? item.name} in the shop`}
+              onPress={() => void Linking.openURL(item.sourceUrl!)}
+              className="flex-row items-center gap-1.5 mt-5 self-start"
+              hitSlop={8}
+            >
+              <Ionicons name="bag-handle-outline" size={16} color={palette.accent} />
+              <Text className="text-accent font-body-medium text-sm" numberOfLines={1}>
+                View in shop{item.sourceTitle ? ` · ${item.sourceTitle}` : ''}
+              </Text>
+            </Pressable>
+          )}
 
           <Text className="text-text-primary font-display text-xl mt-10 mb-1">Correct the category</Text>
           <Text className="text-text-secondary font-body text-sm mb-4">
@@ -166,6 +211,25 @@ export function ClothingDetailScreen() {
       >
         <Ionicons name="chevron-back" size={20} color={landing.inkPaper} />
       </Pressable>
+
+      <Modal
+        visible={confirmWear}
+        onClose={() => setConfirmWear(false)}
+        title="Wearing this today?"
+        message={`${item.name} will be logged as worn today and taken off your never-worn list.`}
+        confirmLabel="Yes, I’m wearing it"
+        cancelLabel="Not today"
+        onConfirm={() => {
+          setConfirmWear(false);
+          logWorn.mutate([id], {
+            onSuccess: () => {
+              incrementWearCount(id);
+              showToast('Logged as worn today', 'success');
+            },
+            onError: () => showToast('Could not log this as worn', 'error'),
+          });
+        }}
+      />
     </ScreenWrapper>
   );
 }

@@ -8,12 +8,11 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface CartItemRowProps {
   product: Product;
-  quantity: number;
-  onUpdateQty: (qty: number) => void;
   onRemove: () => void;
 }
 
-export function CartItemRow({ product, quantity, onUpdateQty, onRemove }: CartItemRowProps) {
+/** One-off marketplace piece in the bag (no quantity: each listing is a single item). */
+export function CartItemRow({ product, onRemove }: CartItemRowProps) {
   const palette = useThemeColors();
   return (
     <View className="flex-row items-center py-4 border-b border-border">
@@ -22,7 +21,9 @@ export function CartItemRow({ product, quantity, onUpdateQty, onRemove }: CartIt
         <Text className="text-text-primary font-body-medium text-base" numberOfLines={1}>
           {product.title}
         </Text>
-        <Text className="text-text-secondary font-body text-sm tabular-nums mt-0.5">{formatCurrency(product.price)}</Text>
+        <Text className="text-text-secondary font-body text-sm tabular-nums mt-0.5">
+          {formatCurrency(product.price)}{product.size ? ` · Size ${product.size}` : ''} · {product.seller.name}
+        </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Remove ${product.title}`}
@@ -35,31 +36,6 @@ export function CartItemRow({ product, quantity, onUpdateQty, onRemove }: CartIt
         >
           <Ionicons name="trash-outline" size={14} color={palette.destructive} />
           <Text className="text-destructive font-body text-xs">Remove</Text>
-        </Pressable>
-      </View>
-      <View className="flex-row items-center border border-border rounded-sm">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Decrease quantity"
-          onPress={() => {
-            hapticLight();
-            onUpdateQty(quantity - 1);
-          }}
-          className="w-10 h-10 items-center justify-center"
-        >
-          <Ionicons name="remove" size={16} color={palette.textPrimary} />
-        </Pressable>
-        <Text className="text-text-primary font-body-medium w-6 text-center tabular-nums">{quantity}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Increase quantity"
-          onPress={() => {
-            hapticLight();
-            onUpdateQty(quantity + 1);
-          }}
-          className="w-10 h-10 items-center justify-center"
-        >
-          <Ionicons name="add" size={16} color={palette.textPrimary} />
         </Pressable>
       </View>
     </View>

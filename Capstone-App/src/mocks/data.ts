@@ -2,10 +2,6 @@ import type {
   ChatMessage,
   ClothingItem,
   Outfit,
-  Product,
-  SellerListing,
-  SellerOrder,
-  SellerStats,
   SocialPost,
   User,
   WardrobeStats,
@@ -76,33 +72,12 @@ export const mockOutfits: Outfit[] = [
   { id: 'o8', name: 'Winter Layers', occasion: 'casual', compatibilityScore: 85, imageUrl: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=600&h=800&fit=crop', itemIds: ['c17', 'c7', 'c13', 'c15'], explanation: 'Warm cashmere paired with rugged boots for cold evenings.' },
 ];
 
-const mockSeller = {
-  id: 'seller-1',
-  name: 'Priya Sharma',
-  avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-  rating: 4.8,
-  responseTime: '< 1 hour',
-};
-
-export const mockProducts: Product[] = [
-  { id: 'p1', title: 'Vintage Denim Jacket', price: 2499, imageUrls: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=500&fit=crop'], category: 'tops', condition: 'good', seller: mockSeller, description: 'Classic 90s denim jacket in excellent vintage condition.', isNew: true, rating: 4.7, reviewCount: 23 },
-  { id: 'p2', title: 'Silk Saree Blouse', price: 1899, imageUrls: ['https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=400&h=500&fit=crop'], category: 'tops', condition: 'like_new', seller: mockSeller, description: 'Handcrafted silk blouse with intricate embroidery.', rating: 4.9, reviewCount: 15 },
-  { id: 'p3', title: 'Palazzo Pants', price: 1299, imageUrls: ['https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400&h=500&fit=crop'], category: 'bottoms', condition: 'new', seller: mockSeller, description: 'Flowy palazzo pants perfect for summer.', isNew: true, rating: 4.5, reviewCount: 8 },
-  { id: 'p4', title: 'Leather Ankle Boots', price: 4599, imageUrls: ['https://images.unsplash.com/photo-1608256246200-53bd35f4f617?w=400&h=500&fit=crop'], category: 'shoes', condition: 'like_new', seller: mockSeller, description: 'Barely worn leather boots, size 8.', rating: 4.6, reviewCount: 12 },
-  { id: 'p5', title: 'Statement Earrings', price: 599, imageUrls: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=400&h=500&fit=crop'], category: 'accessories', condition: 'new', seller: mockSeller, description: 'Gold-plated statement earrings.', rating: 4.8, reviewCount: 31 },
-  { id: 'p6', title: 'Linen Kurta', price: 1699, imageUrls: ['https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=400&h=500&fit=crop'], category: 'tops', condition: 'good', seller: mockSeller, description: 'Breathable linen kurta for everyday wear.', rating: 4.4, reviewCount: 19 },
-  { id: 'p7', title: 'High-Waist Jeans', price: 2199, imageUrls: ['https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=400&h=500&fit=crop'], category: 'bottoms', condition: 'like_new', seller: mockSeller, description: 'Trendy high-waist fit, dark wash.', isNew: true, rating: 4.7, reviewCount: 27 },
-  { id: 'p8', title: 'Canvas Sneakers', price: 1499, imageUrls: ['https://images.unsplash.com/photo-1525966220534-9dec02de445a?w=400&h=500&fit=crop'], category: 'shoes', condition: 'good', seller: mockSeller, description: 'Comfortable everyday sneakers.', rating: 4.3, reviewCount: 44 },
-  { id: 'p9', title: 'Crossbody Bag', price: 3299, imageUrls: ['https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=500&fit=crop'], category: 'accessories', condition: 'like_new', seller: mockSeller, description: 'Minimalist leather crossbody bag.', rating: 4.9, reviewCount: 18 },
-  { id: 'p10', title: 'Floral Wrap Dress', price: 2799, imageUrls: ['https://images.unsplash.com/photo-1572804013309-59a23b99e04f?w=400&h=500&fit=crop'], category: 'dresses', condition: 'new', seller: mockSeller, description: 'Elegant wrap dress for special occasions.', isNew: true, rating: 4.8, reviewCount: 9 },
-];
-
 export const mockChatMessages: ChatMessage[] = [
   { id: 'm1', role: 'user', content: 'What should I wear today?', timestamp: '2026-06-29T08:00:00Z' },
   { id: 'm2', role: 'assistant', content: "Given the 34°C sunny weather in New Delhi, I'd recommend your Summer Brunch look — light linen keeps you cool while looking polished.", timestamp: '2026-06-29T08:00:05Z', outfit: mockOutfits[0] },
   { id: 'm3', role: 'user', content: 'What matches this navy blazer?', timestamp: '2026-06-29T08:05:00Z' },
   { id: 'm4', role: 'assistant', content: 'Your tailored trousers and leather loafers pair beautifully with the navy blazer. Here are trending colors this season:', timestamp: '2026-06-29T08:05:08Z', colorPalette: ['#1B2A4A', '#C3B091', '#5D4037', '#F5F5F0', '#C8A96E'] },
-  { id: 'm5', role: 'assistant', content: 'Also check out this vintage denim jacket from our marketplace — it would add a casual edge to your blazer.', timestamp: '2026-06-29T08:05:12Z', product: mockProducts[0] },
+  { id: 'm5', role: 'assistant', content: 'Also check out this vintage denim jacket from our marketplace — it would add a casual edge to your blazer.', timestamp: '2026-06-29T08:05:12Z' },
 ];
 
 export const mockSocialPosts: SocialPost[] = [
@@ -116,24 +91,6 @@ export const mockWardrobeStats: WardrobeStats = {
   mostWorn: { name: 'White Sneakers', count: 30 },
   leastWorn: { name: 'Silk Scarf', count: 2 },
 };
-
-export const mockSellerStats: SellerStats = {
-  totalSales: 47,
-  revenue: 89450,
-  activeListings: 6,
-};
-
-export const mockSellerListings: SellerListing[] = [
-  { id: 'sl1', title: 'Vintage Denim Jacket', price: 2499, imageUrl: mockProducts[0].imageUrls[0], status: 'active' },
-  { id: 'sl2', title: 'Silk Saree Blouse', price: 1899, imageUrl: mockProducts[1].imageUrls[0], status: 'active' },
-  { id: 'sl3', title: 'Palazzo Pants', price: 1299, imageUrl: mockProducts[2].imageUrls[0], status: 'paused' },
-];
-
-export const mockSellerOrders: SellerOrder[] = [
-  { id: 'so1', productTitle: 'Statement Earrings', status: 'pending', amount: 599, date: '2026-06-29' },
-  { id: 'so2', productTitle: 'Canvas Sneakers', status: 'shipped', amount: 1499, date: '2026-06-27' },
-  { id: 'so3', productTitle: 'Linen Kurta', status: 'completed', amount: 1699, date: '2026-06-25' },
-];
 
 export const mockWearLogs: WearLog[] = [
   { id: 'w1', outfitName: 'Summer Brunch', date: '2026-06-29' },

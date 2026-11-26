@@ -26,16 +26,21 @@ const SECTIONS: Section[] = [
   { id: 'body', label: 'Body & Sizing', icon: 'body-outline', route: 'BodySizing' },
   { id: 'skin', label: 'Skin Tone', icon: 'sunny-outline', route: 'SkinTone' },
   { id: 'notifications', label: 'Notification Settings', icon: 'notifications-outline', route: 'NotificationSettings' },
+  { id: 'marketplace', label: 'Marketplace', icon: 'bag-handle-outline', route: 'Marketplace' },
   { id: 'seller', label: 'Seller Dashboard', icon: 'storefront-outline', route: 'SellerDashboard' },
+  { id: 'orders', label: 'My Orders', icon: 'receipt-outline', route: 'MyOrders' },
+  { id: 'messages', label: 'Messages', icon: 'chatbubbles-outline', route: 'Messages' },
   { id: 'chat', label: 'AI Chat', icon: 'chatbubble-outline', route: 'Chat' },
   { id: 'activity', label: 'Activity History', icon: 'time-outline', route: 'ActivityHistory' },
+  { id: 'donate', label: 'Donate Unworn Clothes', icon: 'heart-outline', route: 'Donate' },
   { id: 'appearance', label: 'Appearance', icon: 'moon-outline', route: 'Appearance' },
   { id: 'help', label: 'Help & Support', icon: 'help-circle-outline', route: 'HelpSupport' },
 ];
 
 const GROUPS: { title: string; ids: string[] }[] = [
   { title: 'Your style', ids: ['edit', 'virtual', 'style', 'analysis', 'body', 'skin'] },
-  { title: 'Activity', ids: ['chat', 'activity', 'seller'] },
+  { title: 'Activity', ids: ['chat', 'activity', 'donate'] },
+  { title: 'Buy and sell', ids: ['marketplace', 'seller', 'orders', 'messages'] },
   { title: 'Settings', ids: ['notifications', 'appearance', 'help'] },
 ];
 

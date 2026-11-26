@@ -1,12 +1,10 @@
 import { View, Text, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { AppImage } from '@/components/shared/AppImage';
 import { Badge } from '@/components/ui/Badge';
 import type { Product } from '@/types';
 import { formatCurrency } from '@/utils/helpers';
 import { hapticLight } from '@/utils/haptics';
 import { cn } from '@/utils/helpers';
-import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface ProductCardProps {
   product: Product;
@@ -16,7 +14,6 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, compact, onPress, className }: ProductCardProps) {
-  const palette = useThemeColors();
   return (
     <Pressable
       accessibilityRole="button"
@@ -29,7 +26,11 @@ export function ProductCard({ product, compact, onPress, className }: ProductCar
     >
       <View className="aspect-[4/5] rounded-md overflow-hidden bg-surface border border-border relative group-hover:border-border-strong">
         <AppImage source={{ uri: product.imageUrls[0] }} className="w-full h-full" contentFit="cover" />
-        {product.isNew && (
+        {product.status !== 'active' ? (
+          <View className="absolute top-2 left-2">
+            <Badge label={product.status === 'sold' ? 'Sold' : 'Paused'} />
+          </View>
+        ) : product.isNew && (
           <View className="absolute top-2 left-2">
             <Badge label="New" variant="accent" />
           </View>
@@ -47,13 +48,9 @@ export function ProductCard({ product, compact, onPress, className }: ProductCar
         </Text>
       </View>
       {!compact && (
-        <View className="flex-row items-center mt-1 gap-1">
-          <Ionicons name="star" size={11} color={palette.accent} />
-          <Text className="text-text-secondary font-body text-xs tabular-nums">{product.seller.rating}</Text>
-          <Text className="text-text-tertiary font-body text-xs ml-1" numberOfLines={1}>
-            {product.seller.name}
-          </Text>
-        </View>
+        <Text className="text-text-tertiary font-body text-xs mt-1" numberOfLines={1}>
+          {[product.size && `Size ${product.size}`, product.brand, product.seller.name].filter(Boolean).join(' · ')}
+        </Text>
       )}
     </Pressable>
   );

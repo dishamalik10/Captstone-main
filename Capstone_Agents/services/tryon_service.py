@@ -350,6 +350,7 @@ def _run(render_id: str) -> None:
     _update(render_id, status="running", stage="Loading the try-on model", progress=0.02, skipped_json=json.dumps(skipped))
     model.load()
     person = Image.open(avatar["avatar_path"]).convert("RGB")
+    original = person.copy()
     parsing = np.asarray(Image.open(avatar["parsing_path"]))
     landmarks = np.asarray(json.loads(avatar["landmarks_json"]), dtype=np.float32)
     total = len(layers)
@@ -365,6 +366,14 @@ def _run(render_id: str) -> None:
                     progress=min(0.99, (index + 0.05 + 0.95 * fraction) / total))
 
         person = render_region(person, garment, mask, progress=report)
+        if region in {"lower", "overall"}:
+            # Shorter bottoms leave slivers of the photo's old trousers beside the hands and
+            # over the ankles (areas the mask protects); fill them from their surroundings.
+            leftover = body_analysis.leftover_bottom(
+                original, parsing, landmarks, np.asarray(mask) > 0,
+                rendered=person, new_colour=body_analysis.garment_colour_lab(garment),
+            )
+            person = body_analysis.remove_leftover(person, leftover, landmarks)
     result_path = _save_png(person, "look")
     _update(render_id, status="done", stage="Ready", progress=1.0, result_path=str(result_path))
 

@@ -6,13 +6,23 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from pathlib import PurePosixPath
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
+import asyncio
+import json
+
+import anyio
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from contracts.api_schemas import (
     ClothingItemResponse,
     ClothingItemUpdate,
+    ConversationStart,
+    DonationRequest,
+    ListingUpdate,
+    MarketMessageCreate,
+    OrderStatusUpdate,
+    ImportLinkRequest,
     FeedbackRequest,
     PreferenceUpdate,
     RecommendationRequest,
@@ -30,8 +40,11 @@ from database import ensure_user, init_database, rows
 from services.preference_service import get_preferences, save_preferences
 from services.recommendation_service import recommend, save_feedback
 from services.recommendation_explainer import explain_recommendations
+from services.season_classifier import target_season
 from services.vision_service import vision_service
 from services.style_analysis_service import analyze_style
+from services.donation_service import mark_donated, unworn_items, unworn_items_csv
+from services.product_link_service import ProductLinkError, import_from_link
 from services.purchase_impact_service import analyze_purchase_impact
 from services.trend_service import current_fashion_trends
 from services.local_llm import LocalModelError, get_model_info, local_llm
@@ -50,22 +63,23 @@ from services.wardrobe_service import (
     delete_item,
     get_item,
     list_items,
+    replace_image,
     update_item,
 )
+from services.garment_cutout import cutout_garment
+from services import marketplace_service as market
+from services.marketplace_service import MarketplaceError
+from services.realtime import chat_partners, conversation_members, hub
 from settings import settings
 from services.app_service import (
     chat,
     chat_history,
-    create_order,
     create_post,
-    create_product,
     get_user,
-    list_products,
     login,
     logout,
     session_user,
     signup,
-    seller_dashboard,
     social_feed,
     toggle_follow,
     toggle_like,
@@ -227,9 +241,18 @@ def public_profile(user_id: str) -> dict:
         raise HTTPException(404, "User not found.") from exc
 
 
+# -- Marketplace: listings, orders and buyer <-> seller chat --------------------------------
+
+def _market(call, *args, **kwargs):
+    try:
+        return call(*args, **kwargs)
+    except MarketplaceError as exc:
+        raise HTTPException(exc.status, str(exc)) from exc
+
+
 @app.get("/marketplace/products")
-def marketplace_products() -> list[dict]:
-    return list_products()
+def marketplace_products(q: str = "", category: str = "") -> list[dict]:
+    return market.list_products(q, category)
 
 
 @app.post("/marketplace/products", status_code=201)
@@ -237,15 +260,73 @@ def marketplace_create_product(
     payload: ProductCreate,
     auth: tuple[dict, str] = Depends(current_auth),
 ) -> dict:
-    return create_product(auth[0]["id"], payload.model_dump())
+    """Create a listing from image URLs (JSON). The app uses /marketplace/listings."""
+    return _market(market.create_listing, auth[0]["id"], payload.model_dump())
+
+
+@app.post("/marketplace/listings", status_code=201)
+async def marketplace_create_listing(
+    title: str = Form(..., min_length=1, max_length=120),
+    price: float = Form(..., gt=0, le=1_000_000),
+    category: str = Form(...),
+    condition: str = Form(...),
+    description: str = Form("", max_length=2000),
+    size: str = Form("", max_length=20),
+    brand: str = Form("", max_length=60),
+    wardrobe_item_id: str | None = Form(None),
+    files: list[UploadFile] = File(default=[]),
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    """Sell an item: upload up to 5 photos, and/or reuse a wardrobe item's photo."""
+    seller_id = auth[0]["id"]
+    if len(files) > market.MAX_PHOTOS:
+        raise HTTPException(422, f"A listing can have at most {market.MAX_PHOTOS} photos.")
+    image_urls: list[str] = []
+    if wardrobe_item_id:
+        url, _item = _market(market.copy_wardrobe_photo, seller_id, wardrobe_item_id)
+        image_urls.append(url)
+    for upload in files:
+        if upload.content_type not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(415, "Only JPEG, PNG, and WebP photos are accepted.")
+        content = await upload.read(settings.max_upload_bytes + 1)
+        if len(content) > settings.max_upload_bytes:
+            raise HTTPException(413, "A photo is larger than the upload limit.")
+        suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[upload.content_type]
+        image_urls.append(market.save_listing_photo(content, suffix))
+    return _market(market.create_listing, seller_id, {
+        "title": title, "price": price, "category": category, "condition": condition,
+        "description": description, "size": size, "brand": brand,
+        "image_urls": image_urls[: market.MAX_PHOTOS], "wardrobe_item_id": wardrobe_item_id,
+    })
+
+
+@app.get("/marketplace/images/{filename}")
+def marketplace_image(filename: str) -> FileResponse:
+    """Listing photos are public, like any shop's product photos."""
+    path = market.image_dir() / filename
+    if PurePosixPath(filename).name != filename or not path.is_file():
+        raise HTTPException(404, "Image not found.")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/marketplace/products/{product_id}")
 def marketplace_product(product_id: str) -> dict:
-    products = [product for product in list_products() if product["id"] == product_id]
-    if not products:
-        raise HTTPException(404, "Product not found.")
-    return products[0]
+    return _market(market.get_product, product_id)
+
+
+@app.patch("/marketplace/listings/{product_id}")
+def marketplace_update_listing(
+    product_id: str,
+    payload: ListingUpdate,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    return _market(market.update_listing, auth[0]["id"], product_id, payload.model_dump(exclude_none=True))
+
+
+@app.delete("/marketplace/listings/{product_id}", status_code=204)
+def marketplace_delete_listing(product_id: str, auth: tuple[dict, str] = Depends(current_auth)) -> Response:
+    _market(market.delete_listing, auth[0]["id"], product_id)
+    return Response(status_code=204)
 
 
 @app.post("/marketplace/orders", status_code=201)
@@ -253,15 +334,135 @@ def marketplace_order(
     payload: OrderRequest,
     auth: tuple[dict, str] = Depends(current_auth),
 ) -> dict:
-    try:
-        return {"order_ids": create_order(auth[0]["id"], payload.product_ids)}
-    except KeyError as exc:
-        raise HTTPException(409, "A product is unavailable.") from exc
+    address = payload.shipping_address.model_dump() if payload.shipping_address else None
+    order_ids = _market(market.create_order, auth[0]["id"], payload.product_ids, address, payload.payment_method)
+    for order in rows(
+        "SELECT o.order_id, o.seller_id, p.title FROM orders o JOIN products p ON p.product_id=o.product_id "
+        "WHERE o.order_id IN (%s)" % ",".join("?" for _ in order_ids), tuple(order_ids),
+    ):
+        hub.push([order["seller_id"]], {
+            "type": "order", "event": "placed", "orderId": order["order_id"], "productTitle": order["title"],
+        })
+    return {"order_ids": order_ids}
+
+
+@app.get("/marketplace/orders/mine")
+def marketplace_my_orders(auth: tuple[dict, str] = Depends(current_auth)) -> list[dict]:
+    return market.buyer_orders(auth[0]["id"])
+
+
+@app.post("/marketplace/orders/{order_id}/status")
+def marketplace_order_status(
+    order_id: str,
+    payload: OrderStatusUpdate,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    user_id = auth[0]["id"]
+    order = _market(market.update_order_status, user_id, order_id, payload.status)
+    other = order["buyer"]["id"] if user_id == order["seller"]["id"] else order["seller"]["id"]
+    hub.push([other], {"type": "order", "event": order["status"], "orderId": order_id, "productTitle": order["productTitle"]})
+    return order
 
 
 @app.get("/marketplace/seller")
 def marketplace_seller(auth: tuple[dict, str] = Depends(current_auth)) -> dict:
-    return seller_dashboard(auth[0]["id"])
+    return market.seller_dashboard(auth[0]["id"])
+
+
+@app.get("/marketplace/conversations")
+def marketplace_conversations(auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    user_id = auth[0]["id"]
+    conversations = market.list_conversations(user_id)
+    for conversation in conversations:
+        conversation["otherUser"]["online"] = hub.is_online(conversation["otherUser"]["id"])
+    return {"conversations": conversations, "unread": market.unread_count(user_id)}
+
+
+@app.post("/marketplace/conversations", status_code=201)
+def marketplace_start_conversation(
+    payload: ConversationStart,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    return _market(market.start_conversation, auth[0]["id"], payload.product_id, payload.buyer_id)
+
+
+@app.get("/marketplace/conversations/{conversation_id}")
+def marketplace_conversation(conversation_id: str, auth: tuple[dict, str] = Depends(current_auth)) -> dict:
+    user_id = auth[0]["id"]
+    conversation = _market(market.get_conversation, user_id, conversation_id)
+    conversation["otherUser"]["online"] = hub.is_online(conversation["otherUser"]["id"])
+    messages = _market(market.conversation_messages, user_id, conversation_id)
+    # Opening the thread marked the other person's messages read: show them "Seen".
+    hub.push([conversation["otherUser"]["id"]], {"type": "read", "conversationId": conversation_id})
+    return {"conversation": conversation, "messages": messages}
+
+
+@app.post("/marketplace/conversations/{conversation_id}/messages", status_code=201)
+def marketplace_send_message(
+    conversation_id: str,
+    payload: MarketMessageCreate,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    user_id = auth[0]["id"]
+    message = _market(market.send_message, user_id, conversation_id, payload.body)
+    members = conversation_members(conversation_id) or ()
+    others = [member for member in members if member != user_id]
+    hub.push(others, {"type": "message", "conversationId": conversation_id, "message": {**message, "mine": False}})
+    hub.push([user_id], {"type": "message", "conversationId": conversation_id, "message": message})  # other tabs
+    return message
+
+
+@app.websocket("/ws")
+async def realtime_socket(websocket: WebSocket) -> None:
+    """Real-time channel. The first frame must be {"type": "auth", "token": "<session token>"}
+    (sent as a message, not in the URL, so the token never lands in access logs)."""
+    await websocket.accept()
+    try:
+        first = json.loads(await asyncio.wait_for(websocket.receive_text(), timeout=10))
+        token = first.get("token") if isinstance(first, dict) and first.get("type") == "auth" else None
+    except (asyncio.TimeoutError, ValueError, WebSocketDisconnect):
+        token = None
+    user = await anyio.to_thread.run_sync(session_user, token) if isinstance(token, str) and token else None
+    if not user:
+        try:
+            await websocket.send_json({"type": "error", "detail": "Authentication required."})
+            await websocket.close(code=4401)
+        except Exception:
+            pass
+        return
+
+    user_id = user["id"]
+    came_online = hub.connect(user_id, websocket)
+    partners = await anyio.to_thread.run_sync(chat_partners, user_id)
+    try:
+        await websocket.send_json({"type": "ready", "online": sorted(p for p in partners if hub.is_online(p))})
+        if came_online:
+            await hub.send(partners, {"type": "presence", "userId": user_id, "online": True})
+        while True:
+            try:
+                event = json.loads(await websocket.receive_text())
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            if event.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif event.get("type") == "typing":
+                conversation_id = str(event.get("conversationId") or "")[:40]
+                members = await anyio.to_thread.run_sync(conversation_members, conversation_id)
+                if members and user_id in members:
+                    await hub.send(
+                        [member for member in members if member != user_id],
+                        {"type": "typing", "conversationId": conversation_id, "userId": user_id},
+                    )
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if hub.disconnect(user_id, websocket):
+            # Shielded: the "went offline" notice must go out even if this task was cancelled.
+            with anyio.CancelScope(shield=True):
+                partners = await anyio.to_thread.run_sync(chat_partners, user_id)
+                await hub.send(partners, {"type": "presence", "userId": user_id, "online": False})
 
 
 @app.get("/social/feed")
@@ -294,14 +495,24 @@ def social_follow(user_id: str, auth: tuple[dict, str] = Depends(current_auth)) 
 def current_weather(city: str) -> dict:
     if not os.getenv("OPENWEATHER_API_KEY"):
         raise HTTPException(503, "OPENWEATHER_API_KEY is not configured.")
+    import requests
     from tools.weather_tool import get_weather
 
-    result = get_weather(city)
+    try:
+        result = get_weather(city)
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else 502
+        if status == 404:
+            raise HTTPException(404, f"Could not find weather for '{city}'.") from exc
+        raise HTTPException(502, "Weather service is unavailable.") from exc
+    except requests.RequestException as exc:
+        raise HTTPException(502, "Weather service is unavailable.") from exc
     return {
         "temperature": result.temperature,
         "condition": result.condition,
         "location": result.city,
         "icon": "partly-sunny",
+        "season": target_season(result.temperature),
     }
 
 
@@ -376,6 +587,35 @@ def read_preferences(
     return get_preferences(owner_id)
 
 
+def _isolate_garment(path: Path) -> tuple[Path, bool]:
+    """If the photo shows someone wearing the item, keep only the clothes on white.
+    Returns the photo to use and whether it was cut out."""
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(path) as photo:
+            garment = cutout_garment(ImageOps.exif_transpose(photo))
+    except OSError:
+        return path, False
+    if garment is None:
+        return path, False
+    cut_path = path.with_name(f"{path.stem}-garment.jpg")
+    garment.save(cut_path, format="JPEG", quality=92)
+    path.unlink(missing_ok=True)
+    return cut_path, True
+
+
+def _analyze_new_photo(owner_id: str, path: Path, **source: str | None) -> dict:
+    path, cut = _isolate_garment(path)
+    try:
+        prediction = vision_service.predict(path)
+        item = create_item(owner_id, path, prediction, **source)
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(500, f"Image analysis failed: {exc}") from exc
+    return {**item, "garment_cutout": cut}
+
+
 @app.post("/wardrobe/upload", response_model=ClothingItemResponse, status_code=201)
 async def upload_clothing(
     user_id: str = Form(..., min_length=1, max_length=100),
@@ -395,12 +635,58 @@ async def upload_clothing(
     }[file.content_type]
     path = settings.upload_dir / f"{uuid.uuid4().hex}{suffix}"
     path.write_bytes(content)
+    return _analyze_new_photo(owner_id, path)
+
+
+@app.post("/wardrobe/import-link", response_model=ClothingItemResponse, status_code=201)
+def import_clothing_from_link(
+    payload: ImportLinkRequest,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    """Add a wardrobe item from a shopping link (product page or direct image URL)."""
+    owner_id = require_owner(payload.user_id, auth)
     try:
-        prediction = vision_service.predict(path)
-        return create_item(owner_id, path, prediction)
+        imported = import_from_link(payload.url, settings.max_upload_bytes)
+    except ProductLinkError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    path = settings.upload_dir / f"{uuid.uuid4().hex}{imported.suffix}"
+    path.write_bytes(imported.content)
+    return _analyze_new_photo(owner_id, path, source_url=imported.source_url, source_title=imported.title)
+
+
+@app.post("/wardrobe/{user_id}/{item_id}/remove-model", response_model=ClothingItemResponse)
+def remove_model_from_photo(
+    user_id: str,
+    item_id: str,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    """Re-cut an existing item's photo to just the garment and re-run the CNN on it."""
+    owner_id = require_owner(user_id, auth)
+    record = rows(
+        "SELECT image_path FROM clothing_items WHERE user_id=? AND item_id=?", (owner_id, item_id),
+    )
+    if not record:
+        raise HTTPException(404, "Clothing item not found.")
+    original = Path(record[0]["image_path"])
+    from PIL import Image, ImageOps
+
+    try:
+        with Image.open(original) as photo:
+            garment = cutout_garment(ImageOps.exif_transpose(photo))
+    except OSError as exc:
+        raise HTTPException(422, "This item's photo could not be read.") from exc
+    if garment is None:
+        raise HTTPException(422, "No person was found wearing this item, so there is nothing to remove.")
+    cut_path = settings.upload_dir / f"{uuid.uuid4().hex}-garment.jpg"
+    garment.save(cut_path, format="JPEG", quality=92)
+    try:
+        prediction = vision_service.predict(cut_path)
+        item, old_path = replace_image(owner_id, item_id, cut_path, prediction)
     except Exception as exc:
-        path.unlink(missing_ok=True)
+        cut_path.unlink(missing_ok=True)
         raise HTTPException(500, f"Image analysis failed: {exc}") from exc
+    old_path.unlink(missing_ok=True)
+    return {**item, "garment_cutout": True}
 
 
 @app.get("/wardrobe/{user_id}", response_model=list[ClothingItemResponse])
@@ -461,7 +747,10 @@ def _weather(payload: RecommendationRequest) -> tuple[float, str, str | None]:
     if payload.city and os.getenv("OPENWEATHER_API_KEY"):
         from tools.weather_tool import get_weather
 
-        weather = get_weather(payload.city)
+        try:
+            weather = get_weather(payload.city)
+        except Exception:  # unknown city or API outage: rank without live weather
+            return 25.0, payload.condition or "Unknown", payload.city
         return weather.temperature, weather.condition, weather.city
     return 25.0, payload.condition or "Unknown", payload.city
 
@@ -560,6 +849,7 @@ def outfit_recommendations(
             "city": city,
             "temperature_c": temperature,
             "condition": condition,
+            "season": target_season(temperature),
         },
         "recommendations": recommendations,
         "agent_trace": agent_trace,
@@ -593,6 +883,40 @@ def feedback(
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return {"status": "saved"}
+
+
+# -- Donations: never-worn clothes ----------------------------------------------------------
+
+@app.get("/donations/candidates", response_model=list[ClothingItemResponse])
+def donation_candidates(
+    min_days: int = 0,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> list[dict]:
+    """Items never marked as worn, owned for at least ``min_days`` days (oldest first)."""
+    return unworn_items(auth[0]["id"], max(0, min_days))
+
+
+@app.get("/donations/candidates.csv")
+def donation_candidates_csv(
+    min_days: int = 0,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> Response:
+    return Response(
+        content=unworn_items_csv(auth[0]["id"], max(0, min_days)),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="aura-unworn-clothes.csv"'},
+    )
+
+
+@app.post("/donations")
+def donate_items(
+    payload: DonationRequest,
+    auth: tuple[dict, str] = Depends(current_auth),
+) -> dict:
+    donated = mark_donated(auth[0]["id"], payload.item_ids)
+    if not donated:
+        raise HTTPException(404, "None of these items are in your active wardrobe.")
+    return {"donated": donated}
 
 
 @app.get("/activity/wear-logs")

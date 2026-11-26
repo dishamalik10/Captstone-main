@@ -258,19 +258,21 @@ export function HomeScreen() {
           </>
         )}
 
-        {cartCount > 0 && (
-          <View className="px-5 mb-8">
-            <Card pressable onPress={() => navigation.navigate('Cart')} className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-text-primary font-body-semibold">Continue shopping</Text>
-                <Text className="text-text-secondary font-body text-sm">
-                  {cartCount} {cartCount === 1 ? 'item' : 'items'} in your cart
-                </Text>
-              </View>
-              <Ionicons name="arrow-forward" size={20} color={palette.textPrimary} />
-            </Card>
-          </View>
-        )}
+        <View className="px-5 mb-8">
+          <Card pressable onPress={() => navigation.navigate(cartCount > 0 ? 'Cart' : 'Marketplace')} className="flex-row items-center justify-between">
+            <View className="flex-1 pr-3">
+              <Text className="text-text-primary font-body-semibold">
+                {cartCount > 0 ? 'Continue shopping' : 'Buy and sell pre-loved pieces'}
+              </Text>
+              <Text className="text-text-secondary font-body text-sm">
+                {cartCount > 0
+                  ? `${cartCount} ${cartCount === 1 ? 'item' : 'items'} in your bag`
+                  : 'Shop other AURA wardrobes, or sell what you don’t wear'}
+              </Text>
+            </View>
+            <Ionicons name="arrow-forward" size={20} color={palette.textPrimary} />
+          </Card>
+        </View>
       </ScrollView>
     </ScreenWrapper>
   );

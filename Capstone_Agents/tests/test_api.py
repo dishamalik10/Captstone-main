@@ -324,3 +324,199 @@ def test_chat_returns_clear_error_when_local_model_is_missing(monkeypatch, tmp_p
         response = client.post("/chat/messages", headers=auth, json={"content": "Hello"})
         assert response.status_code == 503
         assert "weights are missing" in response.json()["detail"]
+
+
+def test_recommendations_follow_live_temperature_season(monkeypatch):
+    from services import recommendation_explainer as explainer, stylist_selector
+    # Ranker and rule explanations only: this test is about weather/season filtering,
+    # so keep the local LLMs (stylist pick, comparison) out of it.
+    monkeypatch.setattr(stylist_selector, "_llm", lambda: None)
+    monkeypatch.setattr(explainer, "get_model_info", lambda: {"present": False})
+    predictions = iter([
+        prediction("T-shirt", "Jersey Basic", "White", "Top"),
+        prediction("Sweater", "Knitwear", "Grey", "Top"),
+        prediction("Shorts", "Shorts", "Beige", "Bottom"),
+        prediction("Trousers", "Trousers", "Black", "Bottom"),
+        prediction("Sandals", "Shoes", "Brown", "Footwear"),
+        prediction("Boots", "Shoes", "Black", "Footwear"),
+    ])
+    monkeypatch.setattr(vision_service, "predict", lambda _: next(predictions))
+
+    with TestClient(app) as client:
+        account = client.post("/auth/signup", json={"full_name": "Season Owner", "email": "season-owner@example.com", "password": "secure-pass-123"})
+        user_id = account.json()["user"]["id"]
+        auth = {"Authorization": f"Bearer {account.json()['token']}"}
+        for _ in range(6):
+            client.post("/wardrobe/upload", headers=auth, data={"user_id": user_id},
+                        files={"file": ("item.jpg", image_bytes(), "image/jpeg")})
+
+        wardrobe = client.get(f"/wardrobe/{user_id}", headers=auth).json()
+        labels = {item["subcategory"]: item["season_label"] for item in wardrobe}
+        assert labels == {"T-shirt": "Summer", "Sweater": "Winter", "Shorts": "Summer",
+                          "Trousers": "All-season", "Sandals": "Summer", "Boots": "Winter"}
+        season_of = {item["item_id"]: item["season_label"] for item in wardrobe}
+
+        def offered(temperature):
+            response = client.post("/recommend", headers=auth, json={
+                "user_id": user_id, "occasion": "casual", "temperature_c": temperature,
+                "condition": "Clear", "limit": 5})
+            assert response.status_code == 200, response.text
+            return response.json()
+
+        hot = offered(35)
+        assert hot["weather"]["season"] == "Summer"
+        for rec in hot["recommendations"]:
+            assert "Winter" not in {season_of[i] for i in rec["item_ids"]}
+
+        cold = offered(4)
+        assert cold["weather"]["season"] == "Winter"
+        for rec in cold["recommendations"]:
+            assert "Summer" not in {season_of[i] for i in rec["item_ids"]}
+
+
+def test_recommend_fetches_weather_for_city(monkeypatch):
+    from contracts.schemas import WeatherContext
+    import tools.weather_tool as weather_tool
+
+    monkeypatch.setenv("OPENWEATHER_API_KEY", "test-key")
+    monkeypatch.setattr(weather_tool, "get_weather", lambda city: WeatherContext(
+        city="Delhi", temperature=38.0, condition="Clear", season="Summer"))
+    with TestClient(app) as client:
+        response = client.get("/weather", params={"city": "Delhi"})
+        assert response.status_code == 200
+        assert response.json()["season"] == "Summer"
+        assert response.json()["temperature"] == 38.0
+
+
+def test_donation_list_shows_only_never_worn_items(monkeypatch):
+    import csv as csv_module
+    import io
+
+    predictions = iter([
+        prediction("Shirt", "Garment Upper body", "White", "Top"),
+        prediction("Trousers", "Garment Lower body", "Black", "Bottom"),
+        prediction("Sweater", "Knitwear", "Grey", "Top"),
+    ])
+    monkeypatch.setattr(vision_service, "predict", lambda _: next(predictions))
+
+    with TestClient(app) as client:
+        account = client.post("/auth/signup", json={"full_name": "Donor", "email": "donor@example.com", "password": "secure-pass-123"})
+        user_id = account.json()["user"]["id"]
+        auth = {"Authorization": f"Bearer {account.json()['token']}"}
+        ids = {}
+        for _ in range(3):
+            item = client.post("/wardrobe/upload", headers=auth, data={"user_id": user_id},
+                               files={"file": ("item.jpg", image_bytes(), "image/jpeg")}).json()
+            ids[item["subcategory"]] = item["item_id"]
+
+        worn = client.post("/feedback", headers=auth, json={
+            "user_id": user_id, "item_ids": [ids["Shirt"], ids["Trousers"]], "action": "wear"})
+        assert worn.status_code == 201, worn.text
+
+        candidates = client.get("/donations/candidates", headers=auth)
+        assert candidates.status_code == 200
+        assert [item["item_id"] for item in candidates.json()] == [ids["Sweater"]]
+        assert candidates.json()[0]["days_in_wardrobe"] == 0
+        # Just uploaded, so nothing has been unworn for 30+ days yet.
+        assert client.get("/donations/candidates", headers=auth, params={"min_days": 30}).json() == []
+
+        exported = client.get("/donations/candidates.csv", headers=auth)
+        assert exported.status_code == 200
+        assert exported.headers["content-type"].startswith("text/csv")
+        assert "attachment" in exported.headers["content-disposition"]
+        table = list(csv_module.reader(io.StringIO(exported.text)))
+        assert table[0][0] == "Item" and len(table) == 2
+        assert table[1][:3] == ["Sweater", "Top", "Grey"]
+
+        # Only the owner's own active items can be donated.
+        other = client.post("/auth/signup", json={"full_name": "Other", "email": "other-donor@example.com", "password": "secure-pass-123"})
+        other_auth = {"Authorization": f"Bearer {other.json()['token']}"}
+        assert client.post("/donations", headers=other_auth, json={"item_ids": [ids["Sweater"]]}).status_code == 404
+
+        donated = client.post("/donations", headers=auth, json={"item_ids": [ids["Sweater"]]})
+        assert donated.status_code == 200
+        assert donated.json() == {"donated": [ids["Sweater"]]}
+        assert client.get("/donations/candidates", headers=auth).json() == []
+        active = [item for item in client.get(f"/wardrobe/{user_id}", headers=auth).json() if item["available"]]
+        assert ids["Sweater"] not in {item["item_id"] for item in active}
+        assert client.post("/donations", headers=auth, json={"item_ids": [ids["Sweater"]]}).status_code == 404
+        client.headers.pop("Authorization", None)
+        assert client.get("/donations/candidates").status_code == 401
+
+
+def test_import_clothing_from_shopping_link(monkeypatch):
+    from services import product_link_service as links
+
+    class Page:
+        def __init__(self, body, content_type, status=200):
+            self.body, self.status_code, self.is_redirect = body, status, False
+            self.headers = {"content-type": content_type}
+        def iter_content(self, size):
+            yield self.body
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+
+    pages = {
+        "https://shop.example/p/7": Page(
+            b'<meta property="og:image" content="/img/7.jpg"><meta property="og:title" content="Black Trousers">',
+            "text/html"),
+        "https://shop.example/img/7.jpg": Page(image_bytes(), "image/jpeg"),
+        "https://shop.example/login": Page(b"<title>Sign in</title>", "text/html"),
+    }
+    monkeypatch.setattr(links, "_check_public_url", lambda url: None)
+    monkeypatch.setattr(links.requests, "get", lambda url, **kwargs: pages[url])
+    monkeypatch.setattr(vision_service, "predict", lambda _: prediction("Trousers", "Garment Lower body", "Black", "Bottom"))
+
+    with TestClient(app) as client:
+        account = client.post("/auth/signup", json={"full_name": "Link Shopper", "email": "link-shopper@example.com", "password": "secure-pass-123"})
+        user_id = account.json()["user"]["id"]
+        auth = {"Authorization": f"Bearer {account.json()['token']}"}
+
+        imported = client.post("/wardrobe/import-link", headers=auth,
+                               json={"user_id": user_id, "url": "https://shop.example/p/7"})
+        assert imported.status_code == 201, imported.text
+        item = imported.json()
+        assert item["category"] == "Bottom"
+        assert item["source_url"] == "https://shop.example/p/7"
+        assert item["source_title"] == "Black Trousers"
+        assert client.get(item["image_url"]).status_code == 200
+        assert [i["item_id"] for i in client.get(f"/wardrobe/{user_id}", headers=auth).json()] == [item["item_id"]]
+
+        missing = client.post("/wardrobe/import-link", headers=auth,
+                              json={"user_id": user_id, "url": "https://shop.example/login"})
+        assert missing.status_code == 422
+        assert "No product photo" in missing.json()["detail"]
+
+
+def test_remove_model_recuts_photo_and_reclassifies(monkeypatch):
+    import main as main_module
+    from pathlib import Path
+
+    predictions = iter([
+        prediction("Skirt", "Shoes", "Dark Red", "Bottom"),   # fooled by the model photo
+        prediction("Dress", "Jersey Fancy", "Pink", "Dress"),  # after the cut-out
+    ])
+    monkeypatch.setattr(vision_service, "predict", lambda _: next(predictions))
+    monkeypatch.setattr(main_module, "cutout_garment", lambda image: None)  # upload: no person found
+
+    with TestClient(app) as client:
+        account = client.post("/auth/signup", json={"full_name": "Cutout Owner", "email": "cutout-owner@example.com", "password": "secure-pass-123"})
+        user_id = account.json()["user"]["id"]
+        auth = {"Authorization": f"Bearer {account.json()['token']}"}
+        item = client.post("/wardrobe/upload", headers=auth, data={"user_id": user_id},
+                           files={"file": ("item.jpg", image_bytes(), "image/jpeg")}).json()
+        assert item["category"] == "Bottom" and item["garment_cutout"] is False
+        from database import row
+        old_path = Path(row("SELECT image_path FROM clothing_items WHERE item_id=?", (item["item_id"],))["image_path"])
+
+        nobody = client.post(f"/wardrobe/{user_id}/{item['item_id']}/remove-model", headers=auth)
+        assert nobody.status_code == 422
+
+        monkeypatch.setattr(main_module, "cutout_garment", lambda image: Image.new("RGB", (40, 80), (220, 150, 170)))
+        fixed = client.post(f"/wardrobe/{user_id}/{item['item_id']}/remove-model", headers=auth)
+        assert fixed.status_code == 200, fixed.text
+        body = fixed.json()
+        assert body["category"] == "Dress" and body["subcategory"] == "Dress"
+        assert body["color_name"] == "Pink" and body["garment_cutout"] is True
+        assert not old_path.exists()
+        assert client.get(body["image_url"]).status_code == 200

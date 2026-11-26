@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, TextInput, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -17,8 +17,10 @@ import { AppImage } from '@/components/shared/AppImage';
 import { OutfitCollage } from '@/components/outfits/OutfitCollage';
 import { Chip } from '@/components/ui/Chip';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { OCCASIONS } from '@/constants/categories';
-import { useOutfitAI, useOutfitRecommendations, useWeather } from '@/hooks';
+import { useOutfitAI, useOutfitRecommendations, useStylingCity, useWeather } from '@/hooks';
+import { useLocationStore } from '@/store/locationStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import type { Occasion, Outfit } from '@/types';
@@ -34,11 +36,13 @@ export function AIStylistScreen() {
   const navigation = useNavigation();
   const [occasion, setOccasion] = useState<Occasion>('casual');
   const { data: outfits, isLoading, isError, error, refetch } = useOutfitRecommendations(occasion);
-  const { data: weather } = useWeather();
+  const { data: weather, isError: weatherError, isFetching: weatherFetching } = useWeather();
   const showToast = useToastStore((s) => s.show);
   const { feedbackMutation, alternativesMutation } = useOutfitAI();
   const [deck, setDeck] = useState<Outfit[] | null>(null);
   const seenRecommendationIds = useRef<Set<string>>(new Set());
+  const [confirmWear, setConfirmWear] = useState(false);
+  const wardrobeItems = useWardrobeStore((s) => s.items);
 
   useEffect(() => {
     if (outfits) {
@@ -63,7 +67,7 @@ export function AIStylistScreen() {
         like: 'Liked—future outfits will use this signal',
         dislike: 'Disliked—future outfits will use this signal',
         save: 'Outfit saved!',
-        wear: 'Marked as worn today',
+        wear: 'Marked as worn today. These pieces are off your never-worn list',
       };
       const msg = messages[action];
       showToast(msg, 'success');
@@ -112,14 +116,12 @@ export function AIStylistScreen() {
               </Text>
               <Text className="text-text-secondary font-body text-sm mt-1">Outfits from your wardrobe, for where you’re going.</Text>
             </View>
-            {weather && (
-              <View className="flex-row items-center gap-1.5 px-3 h-8 rounded-full border border-border mb-1">
-                <Ionicons name="partly-sunny-outline" size={15} color={palette.accent} />
-                <Text className="text-text-primary font-body-medium text-sm tabular-nums">{weather.temperature}°C</Text>
-                <Text className="text-text-secondary font-body text-sm">{weather.condition}</Text>
-              </View>
-            )}
           </View>
+          <WeatherLocationBar
+            weather={weather}
+            loading={weatherFetching}
+            error={weatherError}
+          />
         </View>
 
         <ScrollView
@@ -165,7 +167,7 @@ export function AIStylistScreen() {
               onLike={() => void handleAction('like')}
               onDislike={() => void handleAction('dislike')}
               onSave={() => void handleAction('save')}
-              onWear={() => void handleAction('wear')}
+              onWear={() => setConfirmWear(true)}
             />
           ))}
           {!isLoading && currentOutfits.length > 0 && (
@@ -194,8 +196,28 @@ export function AIStylistScreen() {
           <Button variant="ghost" icon="construct-outline" label="Build my own" onPress={() => navigation.navigate('OutfitBuilder' as never)} />
         </View>
       </ScrollView>
+
+      <Modal
+        visible={confirmWear}
+        onClose={() => setConfirmWear(false)}
+        title="Wearing this today?"
+        message={wearMessage(currentOutfits[0], wardrobeItems)}
+        confirmLabel="Yes, I’m wearing it"
+        cancelLabel="Not today"
+        onConfirm={() => {
+          setConfirmWear(false);
+          void handleAction('wear');
+        }}
+      />
     </ScreenWrapper>
   );
+}
+
+function wearMessage(outfit: Outfit | undefined, wardrobe: { id: string; name: string }[]) {
+  if (!outfit) return undefined;
+  const names = wardrobe.filter((item) => outfit.itemIds.includes(item.id)).map((item) => item.name);
+  const pieces = names.length ? names.join(', ') : `${outfit.itemIds.length} pieces`;
+  return `${pieces} will be marked as worn today and taken off your never-worn list.`;
 }
 
 function SwipeCard({
@@ -337,5 +359,88 @@ function CardAction({
       <Ionicons name={icon} size={22} color={accent ? palette.accent : palette.textPrimary} />
       <Text className={cn('font-body text-xs', accent ? 'text-accent font-body-medium' : 'text-text-secondary')}>{label}</Text>
     </Pressable>
+  );
+}
+
+const SEASON_COPY: Record<'Summer' | 'Winter' | 'Mild', string> = {
+  Summer: 'Hot out, so showing summer pieces.',
+  Winter: 'Cold out, so showing winter pieces.',
+  Mild: 'Mild weather, so summer and winter pieces both work.',
+};
+
+function WeatherLocationBar({
+  weather,
+  loading,
+  error,
+}: {
+  weather?: { temperature: number; condition: string; location: string; season?: 'Summer' | 'Winter' | 'Mild' };
+  loading: boolean;
+  error: boolean;
+}) {
+  const palette = useThemeColors();
+  const city = useStylingCity();
+  const setCity = useLocationStore((s) => s.setCity);
+  const [draft, setDraft] = useState(city ?? '');
+  const [editing, setEditing] = useState(!city);
+
+  useEffect(() => {
+    setDraft(city ?? '');
+  }, [city]);
+
+  const submit = () => {
+    const value = draft.trim();
+    if (!value) return;
+    setCity(value);
+    setEditing(false);
+  };
+
+  return (
+    <View className="mt-4">
+      {editing ? (
+        <View className="flex-row items-center gap-2">
+          <View className="flex-1 flex-row items-center gap-2 px-3 h-11 rounded-full border border-border bg-surface">
+            <Ionicons name="location-outline" size={16} color={palette.accent} />
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              onSubmitEditing={submit}
+              placeholder="Enter your city, e.g. Delhi"
+              placeholderTextColor={palette.textTertiary}
+              returnKeyType="search"
+              autoCapitalize="words"
+              autoCorrect={false}
+              accessibilityLabel="City for live weather"
+              className="flex-1 text-text-primary font-body text-base"
+            />
+          </View>
+          <Button label="Use" onPress={submit} disabled={!draft.trim()} />
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setEditing(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Weather location ${city}. Tap to change.`}
+          className="flex-row items-center gap-1.5 self-start px-3 h-9 rounded-full border border-border"
+        >
+          <Ionicons name="location-outline" size={15} color={palette.accent} />
+          <Text className="text-text-primary font-body-medium text-sm">{city}</Text>
+          {weather && (
+            <Text className="text-text-secondary font-body text-sm tabular-nums">
+              · {Math.round(weather.temperature)}°C {weather.condition}
+            </Text>
+          )}
+          <Ionicons name="create-outline" size={14} color={palette.textSecondary} />
+        </Pressable>
+      )}
+      <Text className="text-text-secondary font-body text-sm mt-2">
+        {loading
+          ? 'Checking live weather…'
+          : error
+            ? `Couldn’t get weather for “${city}”. Check the city name.`
+            : weather?.season
+              ? SEASON_COPY[weather.season]
+              : 'Add a city to match outfits to live weather.'}
+      </Text>
+    </View>
   );
 }

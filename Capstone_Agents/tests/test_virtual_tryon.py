@@ -248,3 +248,52 @@ def test_parsing_masks_are_never_served():
     from pathlib import Path
 
     assert not tryon_service.owns_media("nobody", Path("/tmp/parsing_x.png"))
+
+
+def test_stray_objects_are_dropped_from_the_avatar():
+    parsing = np.zeros((200, 100), dtype=np.uint8)
+    parsing[20:180, 40:60] = ba.CLOTHES        # the person
+    parsing[30:40, 45:50] = ba.HAIR            # detail inside the person's box: kept
+    parsing[185:198, 2:15] = ba.OTHER          # a bag on the floor, outside the person
+    cleaned = ba.keep_person_only(parsing)
+    assert (cleaned[185:198, 2:15] == ba.BACKGROUND).all()
+    assert (cleaned[20:180, 40:60] != ba.BACKGROUND).all()
+
+
+def test_old_trousers_left_beside_hands_and_ankles_are_found_and_filled():
+    from PIL import Image
+
+    height, width = 400, 200
+    lm = np.zeros((33, 3), dtype=np.float32)
+    lm[:, 2] = 1
+    for index, (x, y) in {ba.L_SHOULDER: (130, 60), ba.R_SHOULDER: (70, 60), ba.L_HIP: (120, 180),
+                          ba.R_HIP: (80, 180), ba.L_KNEE: (118, 280), ba.R_KNEE: (82, 280),
+                          ba.L_ANKLE: (116, 370), ba.R_ANKLE: (84, 370)}.items():
+        lm[index, :2] = (x, y)
+    parsing = np.zeros((height, width), dtype=np.uint8)
+    parsing[180:385, 70:130] = ba.CLOTHES                       # black trousers in the photo
+    photo = np.full((height, width, 3), 236, dtype=np.uint8)
+    photo[180:385, 70:130] = (20, 20, 22)
+    original = Image.fromarray(photo)
+    # The new render painted shorts + bare legs down to 360, but kept the hem (protected feet).
+    rendered = photo.copy()
+    rendered[180:230, 70:130] = (70, 80, 120)                   # blue shorts
+    rendered[230:360, 70:130] = (190, 140, 110)                 # legs
+    painted = np.zeros((height, width), dtype=bool)
+    painted[180:360] = True
+    leftover = ba.leftover_bottom(original, parsing, lm, painted)
+    assert leftover[365:385, 80:120].all()                      # the hem over the ankles
+    assert not leftover[180:230, 80:120].any()                  # the new shorts are left alone
+    fixed = np.asarray(ba.remove_leftover(Image.fromarray(rendered), leftover, lm))
+    assert fixed[375, 100].mean() > 100                         # no black hem left
+
+    # Fabric the model *continued* in black (inside the mask) is caught when the new garment differs.
+    rendered[240:260, 70:80] = (20, 20, 22)
+    shorts = Image.new("RGB", (40, 40), (70, 80, 120))
+    caught = ba.leftover_bottom(original, parsing, lm, painted, rendered=Image.fromarray(rendered),
+                                new_colour=ba.garment_colour_lab(shorts))
+    assert caught[245:255, 72:78].all()
+    # ...but not when the new garment is the same colour as the old one (black on black).
+    same = ba.leftover_bottom(original, parsing, lm, painted, rendered=Image.fromarray(rendered),
+                              new_colour=ba.garment_colour_lab(Image.new("RGB", (40, 40), (20, 20, 22))))
+    assert not same[245:255, 72:78].any()

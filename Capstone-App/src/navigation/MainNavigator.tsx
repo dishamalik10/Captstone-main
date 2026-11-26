@@ -4,6 +4,7 @@ import { TabBar } from '@/components/shared/TabBar';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { WardrobeScreen } from '@/screens/wardrobe/WardrobeScreen';
 import { ClothingDetailScreen } from '@/screens/wardrobe/ClothingDetailScreen';
+import { DonateScreen } from '@/screens/wardrobe/DonateScreen';
 import { AIStylistScreen } from '@/screens/outfits/AIStylistScreen';
 import { OutfitBuilderScreen } from '@/screens/outfits/OutfitBuilderScreen';
 import { VirtualLookScreen } from '@/screens/outfits/VirtualLookScreen';
@@ -13,6 +14,11 @@ import { ProductDetailScreen } from '@/screens/marketplace/ProductDetailScreen';
 import { CartScreen } from '@/screens/marketplace/CartScreen';
 import { CheckoutScreen } from '@/screens/marketplace/CheckoutScreen';
 import { SellerDashboardScreen } from '@/screens/marketplace/SellerDashboardScreen';
+import { MarketplaceScreen } from '@/screens/marketplace/MarketplaceScreen';
+import { SellItemScreen } from '@/screens/marketplace/SellItemScreen';
+import { MyOrdersScreen } from '@/screens/marketplace/MyOrdersScreen';
+import { MessagesScreen } from '@/screens/marketplace/MessagesScreen';
+import { ConversationScreen } from '@/screens/marketplace/ConversationScreen';
 import { SocialFeedScreen } from '@/screens/social/SocialFeedScreen';
 import { UserProfileScreen } from '@/screens/social/UserProfileScreen';
 import {
@@ -28,10 +34,12 @@ import { useAuthStore } from '@/store/authStore';
 import { useNavigation } from '@react-navigation/native';
 import { authService } from '@/services';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useRealtime } from '@/hooks/useRealtime';
 
 export type MainStackParamList = {
   Tabs: undefined;
   ClothingDetail: { id: string };
+  Donate: undefined;
   OutfitBuilder: undefined;
   VirtualLook: { occasion?: Occasion; outfitId?: string } | undefined;
   Chat: undefined;
@@ -39,6 +47,11 @@ export type MainStackParamList = {
   Cart: undefined;
   Checkout: undefined;
   SellerDashboard: undefined;
+  Marketplace: undefined;
+  SellItem: undefined;
+  MyOrders: undefined;
+  Messages: undefined;
+  Conversation: { id: string };
   SocialFeed: undefined;
   UserProfile: { userId: string };
   EditProfile: undefined;
@@ -94,6 +107,7 @@ function EditProfileScreen() {
 
 export function MainNavigator() {
   const palette = useThemeColors();
+  useRealtime(); // live chat, presence and order updates while signed in
   return (
     <Stack.Navigator
       initialRouteName="Tabs"
@@ -101,6 +115,7 @@ export function MainNavigator() {
     >
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="ClothingDetail" component={ClothingDetailScreen} />
+      <Stack.Screen name="Donate" component={DonateScreen} />
       <Stack.Screen name="OutfitBuilder" component={OutfitBuilderScreen} />
       <Stack.Screen name="VirtualLook" component={VirtualLookScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
@@ -108,6 +123,11 @@ export function MainNavigator() {
       <Stack.Screen name="Cart" component={CartScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
       <Stack.Screen name="SellerDashboard" component={SellerDashboardScreen} />
+      <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+      <Stack.Screen name="SellItem" component={SellItemScreen} />
+      <Stack.Screen name="MyOrders" component={MyOrdersScreen} />
+      <Stack.Screen name="Messages" component={MessagesScreen} />
+      <Stack.Screen name="Conversation" component={ConversationScreen} />
       <Stack.Screen name="SocialFeed" component={SocialFeedScreen} />
       <Stack.Screen name="UserProfile" component={UserProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />

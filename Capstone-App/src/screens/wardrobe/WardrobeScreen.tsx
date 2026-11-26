@@ -20,7 +20,7 @@ import { wardrobeService } from '@/services';
 import { useWardrobeItems } from '@/hooks';
 import { useToastStore } from '@/components/ui/Toast';
 import { COLORS_FILTER, SEASONS } from '@/constants/categories';
-import type { ClothingCategory } from '@/types';
+import type { ClothingCategory, ClothingItem } from '@/types';
 import { hapticLight } from '@/utils/haptics';
 import { cn } from '@/utils/helpers';
 import { SkeletonGrid } from '@/components/ui/Skeleton';
@@ -83,6 +83,44 @@ export function WardrobeScreen() {
     ]);
   };
 
+  const [linkUrl, setLinkUrl] = useState('');
+  const [pendingSource, setPendingSource] = useState<string | null>(null);
+
+  const reviewUploaded = (uploaded: ClothingItem) => {
+    addItem(uploaded);
+    setPendingItemId(uploaded.id);
+    setPendingSource(uploaded.sourceUrl ? shopName(uploaded.sourceUrl) : null);
+    setUploadForm({
+      name: uploaded.name,
+      category: uploaded.category,
+      color: uploaded.color,
+      pattern: uploaded.pattern,
+      season: uploaded.season,
+      brand: uploaded.brand,
+    });
+    showToast(
+      uploaded.garmentCutout
+        ? 'Removed the model, kept only the garment. Check the details'
+        : uploaded.needsReview ? 'CNN prediction ready—please review it' : 'CNN identified and saved your item',
+      'success',
+    );
+  };
+
+  const importLink = async () => {
+    const url = linkUrl.trim();
+    if (!url) return;
+    try {
+      setAnalyzing(true);
+      reviewUploaded(await wardrobeService.importFromLink(userId, url));
+      setLinkUrl('');
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      showToast(typeof detail === 'string' ? detail : 'Could not import that link. Check that the backend is running.', 'error');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const pickImage = async (useCamera: boolean) => {
     if (useCamera) {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -102,21 +140,7 @@ export function WardrobeScreen() {
     if (!result.canceled) {
       try {
         setAnalyzing(true);
-        const uploaded = await wardrobeService.upload(userId, result.assets[0]);
-        addItem(uploaded);
-        setPendingItemId(uploaded.id);
-        setUploadForm({
-          name: uploaded.name,
-          category: uploaded.category,
-          color: uploaded.color,
-          pattern: uploaded.pattern,
-          season: uploaded.season,
-          brand: uploaded.brand,
-        });
-        showToast(
-          uploaded.needsReview ? 'CNN prediction ready—please review it' : 'CNN identified and saved your item',
-          'success',
-        );
+        reviewUploaded(await wardrobeService.upload(userId, result.assets[0]));
       } catch {
         showToast('Upload failed. Check that the backend is running.', 'error');
       } finally {
@@ -140,6 +164,7 @@ export function WardrobeScreen() {
       });
       updateItem(pendingItemId, item);
       setPendingItemId(null);
+      setPendingSource(null);
       setUploadForm({ name: '', category: 'tops', color: 'White', pattern: 'Solid', season: 'all', brand: '' });
       uploadSheetRef.current?.close();
       showToast('Wardrobe item confirmed', 'success');
@@ -160,6 +185,17 @@ export function WardrobeScreen() {
               {allItems.length} {allItems.length === 1 ? 'piece' : 'pieces'}
               {items.length !== allItems.length ? `, ${items.length} shown` : ''}
             </Text>
+            {allItems.length > 0 && (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => navigation.navigate('Donate')}
+                hitSlop={8}
+                className="flex-row items-center gap-1 mt-1.5"
+              >
+                <Ionicons name="heart-outline" size={14} color={palette.accent} />
+                <Text className="text-accent font-body-medium text-sm">Donate unworn clothes</Text>
+              </Pressable>
+            )}
           </View>
           <Pressable
             accessibilityRole="button"
@@ -306,14 +342,40 @@ export function WardrobeScreen() {
             <Text className="text-text-secondary font-body text-sm mb-4">
               Photograph one piece on a plain background for the best result.
             </Text>
-            <View className="flex-row gap-3 mb-6">
+            <View className="flex-row gap-3 mb-5">
               <UploadOption icon="camera-outline" label="Take photo" onPress={() => pickImage(true)} />
               <UploadOption icon="images-outline" label="From library" onPress={() => pickImage(false)} />
             </View>
+            <Text className="text-text-primary font-body-medium text-sm mb-2">Or paste a shopping link</Text>
+            <View className="flex-row items-center gap-2 mb-1">
+              <View className="flex-1 flex-row items-center gap-2 px-3 h-12 rounded-sm border border-border bg-surface">
+                <Ionicons name="link-outline" size={17} color={palette.textTertiary} />
+                <TextInput
+                  value={linkUrl}
+                  onChangeText={setLinkUrl}
+                  onSubmitEditing={() => void importLink()}
+                  placeholder="Myntra, Ajio, Amazon, H&M…"
+                  placeholderTextColor={palette.textTertiary}
+                  selectionColor={palette.accent}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  returnKeyType="go"
+                  accessibilityLabel="Shopping link to import"
+                  className="flex-1 h-full text-text-primary font-body text-base"
+                />
+              </View>
+              <Button label="Import" onPress={() => void importLink()} disabled={!linkUrl.trim()} />
+            </View>
+            <Text className="text-text-tertiary font-body text-xs mb-6">
+              AURA takes the product photo from the page. If a shop blocks it, paste the photo’s image address instead.
+            </Text>
             {pendingItemId && (
               <View className="flex-row items-center gap-2 mb-4 p-3 rounded-sm bg-surface-raised">
                 <Ionicons name="sparkles-outline" size={16} color={palette.accent} />
-                <Text className="text-text-primary font-body text-sm flex-1">Check the details AURA detected, then save.</Text>
+                <Text className="text-text-primary font-body text-sm flex-1">
+                  {pendingSource ? `Imported from ${pendingSource}. ` : ''}Check the details AURA detected, then save.
+                </Text>
               </View>
             )}
             <Input label="Name" value={uploadForm.name} onChangeText={(t) => setUploadForm((f) => ({ ...f, name: t }))} />
@@ -326,6 +388,14 @@ export function WardrobeScreen() {
       </AppBottomSheet>
     </ScreenWrapper>
   );
+}
+
+function shopName(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'a shop link';
+  }
 }
 
 function UploadOption({

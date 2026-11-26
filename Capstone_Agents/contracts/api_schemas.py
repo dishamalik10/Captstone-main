@@ -30,6 +30,12 @@ class ClothingItemResponse(BaseModel):
     fit: str | None = None
     texture: str | None = None
     seasons: list[str] = Field(default_factory=list)
+    season_label: Literal["Summer", "Winter", "All-season"] = "All-season"
+    season_source: Literal["user", "auto"] = "auto"
+    days_in_wardrobe: int | None = None
+    source_url: str | None = None
+    source_title: str | None = None
+    garment_cutout: bool = False  # True when a model/background was removed from this photo
     style_tags: list[str] = Field(default_factory=list)
     occasion_tags: list[str] = Field(default_factory=list)
     available: bool = True
@@ -57,6 +63,15 @@ class PreferenceUpdate(BaseModel):
     preferred_styles: list[str] = Field(default_factory=list)
     disliked_styles: list[str] = Field(default_factory=list)
     fit_preference: str | None = None
+
+
+class ImportLinkRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=100)
+    url: str = Field(min_length=4, max_length=2048)
+
+
+class DonationRequest(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=500)
 
 
 class RecommendationRequest(BaseModel):
@@ -129,8 +144,42 @@ class ProfileUpdate(BaseModel):
     profileComplete: bool | None = None
 
 
+class ShippingAddress(BaseModel):
+    name: str = Field(default="", max_length=100)
+    phone: str = Field(default="", max_length=20)
+    line1: str = Field(default="", max_length=200)
+    city: str = Field(default="", max_length=80)
+    pincode: str = Field(default="", max_length=12)
+
+
 class OrderRequest(BaseModel):
-    product_ids: list[str] = Field(min_length=1)
+    product_ids: list[str] = Field(min_length=1, max_length=20)
+    shipping_address: ShippingAddress | None = None
+    # Payment is arranged between buyer and seller; it is not processed in-app.
+    payment_method: Literal["cod", "upi"] = "cod"
+
+
+class OrderStatusUpdate(BaseModel):
+    status: Literal["shipped", "completed", "cancelled"]
+
+
+class ListingUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=120)
+    price: float | None = Field(default=None, gt=0, le=1_000_000)
+    description: str | None = Field(default=None, max_length=2000)
+    size: str | None = Field(default=None, max_length=20)
+    brand: str | None = Field(default=None, max_length=60)
+    condition: Literal["new", "like_new", "good", "fair"] | None = None
+    status: Literal["active", "paused"] | None = None
+
+
+class ConversationStart(BaseModel):
+    product_id: str = Field(min_length=1, max_length=40)
+    buyer_id: str | None = Field(default=None, max_length=100)  # seller messaging a buyer
+
+
+class MarketMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
 
 
 class ChatRequest(BaseModel):
@@ -139,12 +188,14 @@ class ChatRequest(BaseModel):
 
 
 class ProductCreate(BaseModel):
-    title: str
-    price: float = Field(gt=0)
-    image_urls: list[str] = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=120)
+    price: float = Field(gt=0, le=1_000_000)
+    image_urls: list[str] = Field(min_length=1, max_length=5)
     category: str
     condition: Literal["new", "like_new", "good", "fair"]
-    description: str
+    description: str = Field(default="", max_length=2000)
+    size: str = Field(default="", max_length=20)
+    brand: str = Field(default="", max_length=60)
 
 
 class PostCreate(BaseModel):

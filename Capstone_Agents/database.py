@@ -165,6 +165,29 @@ def init_database() -> None:
                 metadata_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL
             );
+
+            -- Marketplace buyer <-> seller chat: one conversation per (listing, buyer).
+            CREATE TABLE IF NOT EXISTS conversations (
+                conversation_id TEXT PRIMARY KEY,
+                product_id TEXT NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
+                buyer_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                seller_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(product_id, buyer_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS conversation_messages (
+                message_id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+                sender_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                body TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                read_at TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS ix_conversation_messages
+            ON conversation_messages(conversation_id, created_at);
             """
         )
         # Add ranking-slate identifiers to pre-existing databases without dropping
@@ -198,6 +221,22 @@ def init_database() -> None:
         if "embedding" not in clothing_columns:
             # 512-d float16 visual embedding from the garment CNN (1 KiB per item).
             db.execute("ALTER TABLE clothing_items ADD COLUMN embedding BLOB")
+        for name in ("source_url", "source_title"):
+            # Shop link and product title for items imported from a shopping link.
+            if name not in clothing_columns:
+                db.execute(f"ALTER TABLE clothing_items ADD COLUMN {name} TEXT")
+        if "donated_at" not in clothing_columns:
+            # Set when the user donates an unworn item; the item is also marked unavailable.
+            db.execute("ALTER TABLE clothing_items ADD COLUMN donated_at TEXT")
+        # Marketplace listing details and order delivery info.
+        product_columns = {column["name"] for column in db.execute("PRAGMA table_info(products)")}
+        for name in ("size", "brand", "wardrobe_item_id", "updated_at"):
+            if name not in product_columns:
+                db.execute(f"ALTER TABLE products ADD COLUMN {name} TEXT")
+        order_columns = {column["name"] for column in db.execute("PRAGMA table_info(orders)")}
+        for name in ("shipping_address", "payment_method", "updated_at"):
+            if name not in order_columns:
+                db.execute(f"ALTER TABLE orders ADD COLUMN {name} TEXT")
         chat_columns = {column["name"] for column in db.execute("PRAGMA table_info(chat_messages)")}
         if "metadata_json" not in chat_columns:
             db.execute("ALTER TABLE chat_messages ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")

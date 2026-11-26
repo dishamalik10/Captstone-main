@@ -1,5 +1,5 @@
 import { api, resolveApiUrl } from './api';
-import type { ChatMessage, ClothingCategory, ClothingItem, Occasion, Outfit, Product, SocialPost, User, WardrobeStats, Weather, SellerStats, SellerListing, SellerOrder, WearLog, StyleAnalysis, PurchaseImpact, AvatarView, BodyAnalysis, TryOnRender, TryOnStatus, VirtualAvatar } from '@/types';
+import type { ChatMessage, ClothingCategory, ClothingItem, DonationCandidate, Occasion, Outfit, Product, SocialPost, User, WardrobeStats, Weather, SellerDashboard, MarketOrder, Conversation, MarketMessage, ShippingAddress, PaymentMethod, ProductCondition, WearLog, StyleAnalysis, PurchaseImpact, AvatarView, BodyAnalysis, TryOnRender, TryOnStatus, VirtualAvatar } from '@/types';
 import { Platform } from 'react-native';
 
 export interface UploadAsset {
@@ -27,6 +27,11 @@ interface ApiClothingItem {
   needs_review: boolean;
   pattern?: string | null;
   seasons: string[];
+  season_label?: 'Summer' | 'Winter' | 'All-season';
+  days_in_wardrobe?: number | null;
+  source_url?: string | null;
+  source_title?: string | null;
+  garment_cutout?: boolean;
   available: boolean;
   created_at: string;
 }
@@ -66,7 +71,11 @@ const colorHexes: Record<string, string> = {
   orange: '#D8783C', navy: '#1F2D4D', gold: '#C8A96E',
 };
 
-function normalizeSeason(seasons: string[]) {
+function normalizeSeason(seasons: string[], label?: ApiClothingItem['season_label']) {
+  // The backend classifies every item as Summer, Winter or All-season.
+  if (label === 'Summer') return 'summer' as const;
+  if (label === 'Winter') return 'winter' as const;
+  if (label === 'All-season' || seasons.length > 1) return 'all' as const;
   const value = seasons[0]?.toLowerCase();
   if (value === 'autumn') return 'fall' as const;
   if (value === 'spring' || value === 'summer' || value === 'fall' || value === 'winter') return value;
@@ -83,7 +92,7 @@ function mapItem(item: ApiClothingItem): ClothingItem {
     colorHex: colorHexes[color.toLowerCase()] ?? '#8A8A8A',
     pattern: item.pattern || 'Unknown',
     brand: item.garment_group || 'My wardrobe',
-    season: normalizeSeason(item.seasons),
+    season: normalizeSeason(item.seasons, item.season_label),
     imageUrl: resolveApiUrl(item.image_url),
     wearCount: 0,
     createdAt: item.created_at,
@@ -91,6 +100,9 @@ function mapItem(item: ApiClothingItem): ClothingItem {
     needsReview: item.needs_review,
     subcategory: item.subcategory,
     garmentGroup: item.garment_group,
+    sourceUrl: item.source_url ?? undefined,
+    sourceTitle: item.source_title ?? undefined,
+    garmentCutout: item.garment_cutout ?? false,
   };
 }
 
@@ -169,13 +181,28 @@ export const wardrobeService = {
     const { data } = await api.post<ApiClothingItem>('/wardrobe/upload', form);
     return mapItem(data);
   },
+  /** Add an item from a shopping link (product page or direct image address). */
+  async importFromLink(userId: string, url: string): Promise<ClothingItem> {
+    const { data } = await api.post<ApiClothingItem>('/wardrobe/import-link', { user_id: userId, url });
+    return mapItem(data);
+  },
+  /** Cut the garment out of a photo of someone wearing it, then re-identify it. */
+  async removeModel(userId: string, id: string): Promise<ClothingItem> {
+    const { data } = await api.post<ApiClothingItem>(
+      `/wardrobe/${encodeURIComponent(userId)}/${encodeURIComponent(id)}/remove-model`,
+    );
+    return mapItem(data);
+  },
   async updateItem(userId: string, id: string, data: Partial<ClothingItem>): Promise<ClothingItem> {
     const payload: Record<string, unknown> = {};
     if (data.category) payload.category = categoryToApi[data.category];
     if (data.name) payload.subcategory = data.name;
     if (data.color) payload.color_name = data.color;
     if (data.pattern) payload.pattern = data.pattern;
-    if (data.season) payload.seasons = data.season === 'all' ? [] : [data.season === 'fall' ? 'Autumn' : data.season];
+    // 'all' is saved as every season so it isn't mistaken for "unclassified" and re-inferred.
+    if (data.season) payload.seasons = data.season === 'all'
+      ? ['Spring', 'Summer', 'Autumn', 'Winter']
+      : [data.season === 'fall' ? 'Autumn' : data.season.charAt(0).toUpperCase() + data.season.slice(1)];
     const response = await api.patch<ApiClothingItem>(
       `/wardrobe/${encodeURIComponent(userId)}/${encodeURIComponent(id)}`,
       payload,
@@ -245,6 +272,10 @@ export const outfitService = {
       .join(' · ');
     return data.recommendations.map((item) => mapOutfit(item, occasion, { ...data, comparison_alternative }));
   },
+  /** Log pieces as worn today without a recommendation (e.g. from an item's own page). */
+  async logWorn(userId: string, itemIds: string[]) {
+    return (await api.post('/feedback', { user_id: userId, item_ids: itemIds, action: 'wear' })).data;
+  },
   async feedback(userId: string, outfit: Outfit, action: 'skip' | 'like' | 'dislike' | 'save' | 'wear') {
     const { data } = await api.post('/feedback', {
       user_id: userId,
@@ -256,24 +287,99 @@ export const outfitService = {
   },
 };
 
+function mapProduct(product: Product): Product {
+  return { ...product, imageUrls: product.imageUrls.map(resolveApiUrl) };
+}
+
+function mapOrder(order: MarketOrder): MarketOrder {
+  return { ...order, imageUrl: resolveApiUrl(order.imageUrl) };
+}
+
+function mapConversation(conversation: Conversation): Conversation {
+  return { ...conversation, product: { ...conversation.product, imageUrl: resolveApiUrl(conversation.product.imageUrl) } };
+}
+
+export interface NewListing {
+  title: string;
+  price: number;
+  category: ClothingCategory;
+  condition: ProductCondition;
+  description: string;
+  size: string;
+  brand: string;
+  /** Reuse this wardrobe item's photo as the first listing photo. */
+  wardrobeItemId?: string;
+  photos: UploadAsset[];
+}
+
 export const marketplaceService = {
-  async getProducts() {
-    return (await api.get<Product[]>('/marketplace/products')).data;
+  async getProducts(query = '', category = '') {
+    const { data } = await api.get<Product[]>('/marketplace/products', { params: { q: query, category } });
+    return data.map(mapProduct);
   },
   async getProduct(id: string) {
-    return (await api.get<Product>(`/marketplace/products/${encodeURIComponent(id)}`)).data;
+    return mapProduct((await api.get<Product>(`/marketplace/products/${encodeURIComponent(id)}`)).data);
   },
-  async getSellerStats() {
-    return (await api.get<{ stats: SellerStats }>('/marketplace/seller')).data.stats;
+  async createListing(listing: NewListing) {
+    const form = new FormData();
+    form.append('title', listing.title);
+    form.append('price', String(listing.price));
+    form.append('category', listing.category);
+    form.append('condition', listing.condition);
+    form.append('description', listing.description);
+    form.append('size', listing.size);
+    form.append('brand', listing.brand);
+    if (listing.wardrobeItemId) form.append('wardrobe_item_id', listing.wardrobeItemId);
+    for (const [index, asset] of listing.photos.entries()) {
+      const name = asset.fileName || `listing-${Date.now()}-${index}.jpg`;
+      if (Platform.OS === 'web') {
+        const blob = asset.file ?? await (await fetch(asset.uri)).blob();
+        form.append('files', blob, name);
+      } else {
+        form.append('files', { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' } as unknown as Blob);
+      }
+    }
+    return mapProduct((await api.post<Product>('/marketplace/listings', form)).data);
   },
-  async getSellerListings() {
-    return (await api.get<{ listings: SellerListing[] }>('/marketplace/seller')).data.listings;
+  async updateListing(id: string, changes: Partial<Pick<Product, 'title' | 'price' | 'description' | 'size' | 'brand' | 'condition'>> & { status?: 'active' | 'paused' }) {
+    return mapProduct((await api.patch<Product>(`/marketplace/listings/${encodeURIComponent(id)}`, changes)).data);
   },
-  async getSellerOrders() {
-    return (await api.get<{ orders: SellerOrder[] }>('/marketplace/seller')).data.orders;
+  async deleteListing(id: string) {
+    await api.delete(`/marketplace/listings/${encodeURIComponent(id)}`);
   },
-  async placeOrder(productIds: string[]) {
-    return (await api.post('/marketplace/orders', { product_ids: productIds })).data;
+  async getDashboard(): Promise<SellerDashboard> {
+    const { data } = await api.get<SellerDashboard>('/marketplace/seller');
+    return { ...data, listings: data.listings.map(mapProduct), orders: data.orders.map(mapOrder) };
+  },
+  async placeOrder(productIds: string[], shippingAddress: ShippingAddress, paymentMethod: PaymentMethod) {
+    return (await api.post<{ order_ids: string[] }>('/marketplace/orders', {
+      product_ids: productIds, shipping_address: shippingAddress, payment_method: paymentMethod,
+    })).data.order_ids;
+  },
+  async getMyOrders() {
+    return (await api.get<MarketOrder[]>('/marketplace/orders/mine')).data.map(mapOrder);
+  },
+  async updateOrderStatus(id: string, status: 'shipped' | 'completed' | 'cancelled') {
+    return mapOrder((await api.post<MarketOrder>(`/marketplace/orders/${encodeURIComponent(id)}/status`, { status })).data);
+  },
+  async getConversations() {
+    const { data } = await api.get<{ conversations: Conversation[]; unread: number }>('/marketplace/conversations');
+    return { conversations: data.conversations.map(mapConversation), unread: data.unread };
+  },
+  /** Open the thread about a listing (buyer), or with a buyer who ordered it (seller). */
+  async startConversation(productId: string, buyerId?: string) {
+    return mapConversation((await api.post<Conversation>('/marketplace/conversations', {
+      product_id: productId, buyer_id: buyerId,
+    })).data);
+  },
+  async getConversation(id: string) {
+    const { data } = await api.get<{ conversation: Conversation; messages: MarketMessage[] }>(
+      `/marketplace/conversations/${encodeURIComponent(id)}`,
+    );
+    return { conversation: mapConversation(data.conversation), messages: data.messages };
+  },
+  async sendMessage(id: string, body: string) {
+    return (await api.post<MarketMessage>(`/marketplace/conversations/${encodeURIComponent(id)}/messages`, { body })).data;
   },
 };
 
@@ -317,6 +423,26 @@ export const socialService = {
   },
   async toggleFollow(id: string) {
     return (await api.post<{ following: boolean }>(`/social/users/${encodeURIComponent(id)}/follow`)).data;
+  },
+};
+
+export const donationService = {
+  /** Items never marked as worn, owned for at least `minDays` days, oldest first. */
+  async getCandidates(minDays = 0): Promise<DonationCandidate[]> {
+    const { data } = await api.get<ApiClothingItem[]>('/donations/candidates', { params: { min_days: minDays } });
+    return data.map((item) => ({ ...mapItem(item), daysInWardrobe: item.days_in_wardrobe ?? 0 }));
+  },
+  /** The same list as CSV text, ready to save or share. */
+  async getCandidatesCsv(minDays = 0): Promise<string> {
+    const { data } = await api.get<string>('/donations/candidates.csv', {
+      params: { min_days: minDays },
+      responseType: 'text',
+      transformResponse: (body) => body,
+    });
+    return data;
+  },
+  async donate(itemIds: string[]): Promise<string[]> {
+    return (await api.post<{ donated: string[] }>('/donations', { item_ids: itemIds })).data.donated;
   },
 };
 

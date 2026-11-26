@@ -29,6 +29,7 @@ from settings import settings
 from services.trend_service import current_fashion_trends, trend_relevance
 from services.compatibility_service import learned_compatibility_score
 from services.fashion_analysis import analyze_outfit
+from services.season_classifier import effective_seasons, season_label, target_season
 
 LOGGER = logging.getLogger(__name__)
 
@@ -239,6 +240,32 @@ def occasion_score(items: list[dict[str, Any]], occasion: str) -> float:
     return max(0.0, min(100.0, score))
 
 
+# Kept below the critic's weather floor (45) so out-of-season outfits are not offered
+# unless nothing in the wardrobe suits the weather (the revision step then relaxes it).
+SEASON_MISMATCH_CAP = 40.0
+
+
+def season_mismatch(items: list[dict[str, Any]], temperature: float) -> bool:
+    """True when the outfit has winter-only clothes in the heat or summer-only clothes in the cold."""
+    target = target_season(temperature)
+    if target == "Mild":
+        return False
+    labels = [(item, season_label(effective_seasons(item))) for item in items]
+    if target == "Summer":
+        return any(label == "Winter" for _, label in labels)
+    warm_layer = any(
+        item.get("category") == "Outerwear" and label == "Winter" for item, label in labels
+    )
+    for item, label in labels:
+        if label != "Summer":
+            continue
+        # A t-shirt under a winter coat is fine; shorts, sandals or a sundress are not.
+        if item.get("category") == "Top" and warm_layer:
+            continue
+        return True
+    return False
+
+
 def weather_score(
     items: list[dict[str, Any]],
     temperature: float,
@@ -283,6 +310,8 @@ def weather_score(
             score += 10
         if any(season in seasons for season in ("winter", "autumn")):
             score += 4
+    if season_mismatch(items, temperature):
+        score = min(score, SEASON_MISMATCH_CAP)
     return max(0.0, min(100.0, score))
 
 

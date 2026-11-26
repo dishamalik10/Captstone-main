@@ -155,8 +155,33 @@ def validate(parsed: ParsedPhoto) -> list[str]:
 
 # -- avatar ---------------------------------------------------------------------------
 
+def keep_person_only(parsing: np.ndarray) -> np.ndarray:
+    """Drop segmented blobs that aren't the person (a bag on the floor, a chair).
+
+    Keeps the largest connected region plus any small piece lying inside its bounding
+    box (e.g. a detached strand of hair); everything else becomes background."""
+    import cv2
+
+    person = (parsing != BACKGROUND).astype(np.uint8)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(person, 8)
+    if count <= 2:
+        return parsing
+    main = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    x, y, w, h = (stats[main, cv2.CC_STAT_LEFT], stats[main, cv2.CC_STAT_TOP],
+                  stats[main, cv2.CC_STAT_WIDTH], stats[main, cv2.CC_STAT_HEIGHT])
+    keep = np.zeros(count, dtype=bool)
+    keep[main] = True
+    for label in range(1, count):
+        lx, ly, lw, lh = stats[label, :4]
+        keep[label] |= lx >= x and ly >= y and lx + lw <= x + w and ly + lh <= y + h
+    cleaned = parsing.copy()
+    cleaned[~keep[labels]] = BACKGROUND
+    return cleaned
+
+
 def build_avatar(parsed: ParsedPhoto) -> tuple[Image.Image, np.ndarray, np.ndarray]:
     """Frame the person 3:4 on a plain backdrop. Returns (avatar, parsing, landmarks) in avatar space."""
+    parsed = ParsedPhoto(image=parsed.image, parsing=keep_person_only(parsed.parsing), landmarks=parsed.landmarks)
     person = parsed.parsing != BACKGROUND
     ys, xs = np.nonzero(person)
     top, bottom = ys.min(), ys.max()
@@ -399,6 +424,89 @@ def tryon_mask(parsing: np.ndarray, lm: np.ndarray, region: str) -> Image.Image:
     protect[int(min(height - 1, ankle_y + torso * 0.05)):, :] = 255
     mask_u8[protect > 0] = 0
     return Image.fromarray(mask_u8)
+
+
+def garment_colour_lab(garment: Image.Image) -> np.ndarray | None:
+    """Median Lab colour of a garment cut out on white (None if nothing is left)."""
+    import cv2
+
+    rgb = np.asarray(garment.convert("RGB"))
+    fabric = np.abs(rgb.astype(np.int16) - 255).sum(axis=2) > 40
+    if fabric.sum() < 50:
+        return None
+    lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
+    return np.median(lab[fabric], axis=0)
+
+
+def leftover_bottom(
+    original: Image.Image, parsing: np.ndarray, lm: np.ndarray, painted: np.ndarray,
+    rendered: Image.Image | None = None, new_colour: np.ndarray | None = None,
+) -> np.ndarray:
+    """Pixels of the photo's *old* trousers/skirt that a lower-garment render did not repaint.
+
+    The lower mask deliberately skips the hanging arms and the feet, so when the new
+    bottom is shorter (trousers -> shorts) slivers of the old one survive beside the hands
+    and over the ankles. They're found by colour: clothing below the hips that matches
+    the old bottom, sampled on the legs between the hips and knees, away from the arms.
+
+    The model also tends to *continue* the old fabric next to protected areas (it sees it
+    as context), so when the new garment's colour is clearly different, rendered pixels
+    that still look like the old bottom count as leftovers too."""
+    import cv2
+
+    height, width = parsing.shape
+    hip_y = (lm[L_HIP, 1] + lm[R_HIP, 1]) / 2
+    knee_y = (lm[L_KNEE, 1] + lm[R_KNEE, 1]) / 2
+    shoulder_y = (lm[L_SHOULDER, 1] + lm[R_SHOULDER, 1]) / 2
+    torso = max(1.0, hip_y - shoulder_y)
+    centre_x = (lm[L_HIP, 0] + lm[R_HIP, 0]) / 2
+    half = abs(lm[L_HIP, 0] - lm[R_HIP, 0]) * 0.45
+    rows_, cols = np.arange(height)[:, None], np.arange(width)[None, :]
+    clothes = parsing == CLOTHES
+    sample = clothes & (rows_ >= hip_y + torso * 0.1) & (rows_ <= knee_y) & (np.abs(cols - centre_x) <= half)
+    if sample.sum() < 50:
+        return np.zeros_like(clothes)
+    lab = cv2.cvtColor(np.asarray(original.convert("RGB")), cv2.COLOR_RGB2LAB).astype(np.float32)
+    reference = np.median(lab[sample], axis=0)
+    similar = np.linalg.norm(lab - reference, axis=2) < 32  # tolerant of folds and shading
+    stale = ~painted
+    if rendered is not None and new_colour is not None and np.linalg.norm(new_colour - reference) > 40:
+        out = cv2.cvtColor(np.asarray(rendered.convert("RGB")), cv2.COLOR_RGB2LAB).astype(np.float32)
+        stale = stale | (np.linalg.norm(out - reference, axis=2) < 32)
+    leftover = clothes & similar & (rows_ >= hip_y) & stale
+    return cv2.dilate(leftover.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+
+
+def remove_leftover(image: Image.Image, leftover: np.ndarray, lm: np.ndarray) -> Image.Image:
+    """Fill leftover pixels. Below the knees each column continues the colour just above
+    the gap (the shin over a leg, the backdrop between legs), which keeps ankles clean;
+    smaller slivers higher up (beside the hands) are inpainted from their surroundings."""
+    import cv2
+
+    if not leftover.any():
+        return image
+    pixels = np.asarray(image.convert("RGB")).copy()
+    knee_y = int((lm[L_KNEE, 1] + lm[R_KNEE, 1]) / 2)
+    low = leftover.copy()
+    low[:knee_y] = False
+    for x in np.nonzero(low.any(axis=0))[0]:
+        ys = np.nonzero(low[:, x])[0]
+        top = int(ys.min())
+        above = top - 1
+        while above > knee_y and leftover[above, x]:
+            above -= 1
+        if above <= 0:
+            continue
+        # Average a few pixels above so one stray pixel doesn't streak down the column.
+        colour = pixels[max(0, above - 6):above + 1, x].mean(axis=0)
+        pixels[ys, x] = colour.astype(np.uint8)
+    # Soften the vertical streaks, then inpaint the rest (above the knees) and the seams.
+    blurred = cv2.GaussianBlur(pixels, (0, 0), 2.0)
+    pixels[low] = blurred[low]
+    seams = (cv2.dilate(low.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & ~low
+    rest = (leftover & ~low) | seams
+    filled = cv2.inpaint(pixels, rest.astype(np.uint8) * 255, 9, cv2.INPAINT_TELEA)
+    return Image.fromarray(filled)
 
 
 # -- garment cut-out ------------------------------------------------------------------

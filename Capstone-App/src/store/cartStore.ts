@@ -19,18 +19,11 @@ interface CartState {
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
 
+  // Marketplace pieces are one-offs: an item is either in the bag or not.
   addToCart: (product) =>
-    set((s) => {
-      const existing = s.items.find((i) => i.product.id === product.id);
-      if (existing) {
-        return {
-          items: s.items.map((i) =>
-            i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
-          ),
-        };
-      }
-      return { items: [...s.items, { product, quantity: 1 }] };
-    }),
+    set((s) => (s.items.some((i) => i.product.id === product.id)
+      ? s
+      : { items: [...s.items, { product, quantity: 1 }] })),
 
   removeFromCart: (productId) =>
     set((s) => ({ items: s.items.filter((i) => i.product.id !== productId) })),
