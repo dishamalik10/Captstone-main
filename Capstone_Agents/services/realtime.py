@@ -47,6 +47,9 @@ class ConnectionHub:
         del self._sockets[user_id]
         return True
 
+    def socket_count(self, user_id: str) -> int:
+        return len(self._sockets.get(user_id, ()))
+
     def is_online(self, user_id: str) -> bool:
         return bool(self._sockets.get(user_id))
 

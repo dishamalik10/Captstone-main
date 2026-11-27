@@ -8,11 +8,15 @@ import { Header } from '@/components/shared/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { socialService } from '@/services';
+import { ReportButton, ReportSheet } from '@/components/shared/ReportSheet';
+import { useAuthStore } from '@/store/authStore';
 
 export function UserProfileScreen() {
   const route = useRoute<RouteProp<{ params: { userId: string } }>>();
   const navigation = useNavigation();
   const [following, setFollowing] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const myId = useAuthStore((s) => s.user?.id);
   const { data: user, isLoading, isError, refetch } = useQuery({
     queryKey: ['user', route.params.userId],
     queryFn: () => socialService.getUser(route.params.userId),
@@ -20,7 +24,16 @@ export function UserProfileScreen() {
 
   return (
     <ScreenWrapper loading={isLoading} error={isError ? 'User not found' : null} onRetry={refetch}>
-      <Header showBack onBack={() => navigation.goBack()} />
+      <Header showBack onBack={() => navigation.goBack()} rightAction={user && user.id !== myId ? <ReportButton onPress={() => setReporting(true)} /> : undefined} />
+      {user && (
+        <ReportSheet
+          visible={reporting}
+          onClose={() => setReporting(false)}
+          target={{ type: 'user', id: user.id, label: user.fullName }}
+          user={{ id: user.id, name: user.fullName }}
+          onBlocked={() => navigation.goBack()}
+        />
+      )}
       {user && (
         <View className="px-5 w-full self-center" style={{ maxWidth: 640 }}>
           <View className="items-center py-6">

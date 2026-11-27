@@ -15,7 +15,9 @@ import { OCCASIONS } from '@/constants/categories';
 import { layout } from '@/constants/theme';
 import { useOutfitAI, useOutfitRecommendations, useWeather } from '@/hooks';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { authService, tryonService } from '@/services';
+import { authService, fitService, tryonService } from '@/services';
+import { FitAdviceCard } from '@/components/fit/FitAdviceCard';
+import { MeasurementsCard } from '@/components/fit/MeasurementsCard';
 import { useAuthStore } from '@/store/authStore';
 import type { AvatarView, BodyAnalysis, Occasion, Outfit, TryOnRender, VirtualAvatar } from '@/types';
 import { hapticLight, hapticMedium } from '@/utils/haptics';
@@ -40,6 +42,7 @@ export function VirtualLookScreen() {
   const palette = useThemeColors();
   const showToast = useToastStore((s) => s.show);
   const queryClient = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
   const { width } = useWindowDimensions();
   const contentWidth = Math.min(width - 32, layout.reading);
 
@@ -49,6 +52,9 @@ export function VirtualLookScreen() {
   const [deck, setDeck] = useState<Outfit[] | null>(null);
   const [showBefore, setShowBefore] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Body-photo consent (4.3): asked before the first photo, recorded by the server.
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [pendingPick, setPendingPick] = useState<{ target: AvatarView; useCamera: boolean } | null>(null);
   const seen = useRef<Set<string>>(new Set());
 
   const avatarQuery = useQuery({ queryKey: ['avatar'], queryFn: () => tryonService.getAvatars() });
@@ -74,20 +80,24 @@ export function VirtualLookScreen() {
 
   // -- render the selected outfit on the avatar ---------------------------------------
   const [renderId, setRenderId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const startRender = useMutation({
     mutationFn: (o: Outfit) => tryonService.startRender(o.itemIds, view, o.id),
+    onMutate: () => setStartError(null),
     onSuccess: (render) => setRenderId(render.id),
+    // e.g. 429: one look at a time, a daily limit, or a full queue. Show the server's reason.
+    onError: (error) => {
+      setRenderId(null); // e.g. "Try again" on a failed look: show the reason with the start button
+      setStartError(errorDetail(error, 'This look could not be started. Try again.'));
+    },
   });
   const canRender = Boolean(avatar && status?.tryonReady && outfit);
   useEffect(() => {
+    // Renders are started only when the user asks (each new one counts towards a daily
+    // limit). A look rendered before is served from the cache instantly when re-requested.
     setRenderId(null);
+    setStartError(null);
     setShowBefore(false);
-    if (!canRender || !outfit) return undefined;
-    // Each render takes minutes on a laptop: only queue the outfit the user settles on,
-    // not every outfit they flick past. Finished looks are cached, so revisits are instant.
-    const timer = setTimeout(() => startRender.mutate(outfit), 1500);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outfit?.id, avatar?.id, status?.tryonReady, view]);
 
   const renderQuery = useQuery({
@@ -105,8 +115,8 @@ export function VirtualLookScreen() {
 
   // -- avatar upload ------------------------------------------------------------------
   const upload = useMutation({
-    mutationFn: ({ asset, target }: { asset: ImagePicker.ImagePickerAsset; target: AvatarView }) =>
-      tryonService.uploadAvatar({ uri: asset.uri, fileName: asset.fileName, mimeType: asset.mimeType, file: (asset as { file?: File }).file }, target),
+    mutationFn: ({ asset, target, consent }: { asset: ImagePicker.ImagePickerAsset; target: AvatarView; consent: boolean }) =>
+      tryonService.uploadAvatar({ uri: asset.uri, fileName: asset.fileName, mimeType: asset.mimeType, file: (asset as { file?: File }).file }, target, consent),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ['avatar'] });
       queryClient.invalidateQueries({ queryKey: ['tryon-saved'] });
@@ -116,8 +126,13 @@ export function VirtualLookScreen() {
     onError: (error) => showToast(errorDetail(error, 'Could not use that photo'), 'error'),
   });
 
-  const pickPhoto = async (target: AvatarView, useCamera: boolean) => {
+  const pickPhoto = async (target: AvatarView, useCamera: boolean, consentJustGiven = false) => {
     hapticLight();
+    const consent = consentJustGiven || consentAccepted || Boolean(avatarQuery.data?.consentGiven);
+    if (!consent) {
+      setPendingPick({ target, useCamera });
+      return;
+    }
     if (Platform.OS !== 'web') {
       const permission = useCamera
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -139,17 +154,23 @@ export function VirtualLookScreen() {
       showToast('Use a portrait (vertical) full-body photo.', 'error');
       return;
     }
-    upload.mutate({ asset, target });
+    upload.mutate({ asset, target, consent: true });
   };
 
   const removeAvatar = useMutation({
     mutationFn: () => tryonService.deleteAvatars(),
     onSuccess: () => {
       setRenderId(null);
+      setConsentAccepted(false); // deleting body data withdraws consent
+      // Measurements and height are body data too (4.11).
+      useAuthStore.getState().updateProfile({ heightCm: undefined });
+      queryClient.invalidateQueries({ queryKey: ['measurements'] });
+      queryClient.invalidateQueries({ queryKey: ['fit'] });
       queryClient.invalidateQueries({ queryKey: ['avatar'] });
       queryClient.invalidateQueries({ queryKey: ['tryon-saved'] });
-      showToast('Your photos and looks were deleted', 'success');
+      showToast('Your body data was deleted', 'success');
     },
+    onError: (error) => showToast(errorDetail(error, 'Could not delete your body data. Try again.'), 'error'),
   });
 
   // -- look actions -------------------------------------------------------------------
@@ -253,7 +274,7 @@ export function VirtualLookScreen() {
                       contentFit="contain"
                       accessibilityLabel={render?.status === 'done' && !showBefore ? 'Your avatar wearing the selected outfit' : 'Your avatar'}
                     />
-                    <RenderOverlay render={render} starting={startRender.isPending} tryonReady={status?.tryonReady ?? false} missing={status?.missingFiles ?? []} />
+                    <RenderOverlay render={render} starting={startRender.isPending} enabled={status?.enabled ?? false} tryonReady={status?.tryonReady ?? false} missing={status?.missingFiles ?? []} />
                     {render?.status === 'done' && (
                       <Pressable
                         accessibilityRole="button"
@@ -265,6 +286,16 @@ export function VirtualLookScreen() {
                         <Ionicons name="eye-outline" size={15} color={palette.textPrimary} />
                         <Text className="text-text-primary font-body-medium text-xs">Hold for before</Text>
                       </Pressable>
+                    )}
+                    {canRender && outfit && !render && !startRender.isPending && (
+                      <View className="absolute left-4 right-4 bottom-4 gap-2">
+                        {startError ? (
+                          <View className="rounded-sm bg-surface border border-destructive p-3" accessibilityLiveRegion="polite">
+                            <Text className="text-text-primary font-body text-xs">{startError}</Text>
+                          </View>
+                        ) : null}
+                        <Button variant="primary" icon="sparkles-outline" label="Try it on" onPress={() => { hapticMedium(); startRender.mutate(outfit); }} />
+                      </View>
                     )}
                     {render?.status === 'failed' && outfit && (
                       <View className="absolute left-4 right-4 bottom-4">
@@ -321,6 +352,14 @@ export function VirtualLookScreen() {
                     {outfit.itemImages?.map((p) => p.label).join(' · ')}
                   </Text>
                 )}
+                {outfit && userId && (
+                  <View className="mt-2 gap-1" accessibilityLabel="Size advice for each piece">
+                    {outfit.itemIds.map((itemId) => (
+                      <FitAdviceCard key={itemId} compact label={outfit.itemImages?.find((p) => p.id === itemId)?.label} queryKey={['item', itemId]}
+                        load={() => fitService.forItem(userId, itemId)} />
+                    ))}
+                  </View>
+                )}
 
                 <View className="flex-row gap-3 mt-4">
                   <View className="flex-1">
@@ -353,6 +392,8 @@ export function VirtualLookScreen() {
                 />
               )}
 
+              <MeasurementsCard />
+
               {/* Saved looks */}
               {(savedQuery.data?.length ?? 0) > 0 && (
                 <View className="mt-8">
@@ -368,7 +409,7 @@ export function VirtualLookScreen() {
               {/* Photo management */}
               <View className="mt-8 gap-2">
                 <Button variant="secondary" icon="camera-outline" label={`Update ${view} photo`} loading={busy} onPress={() => void pickPhoto(view, false)} />
-                <Button variant="ghost" icon="trash-outline" label="Delete my photos and looks" onPress={() => setConfirmDelete(true)} />
+                <Button variant="ghost" icon="trash-outline" label="Delete my body data" onPress={() => setConfirmDelete(true)} />
                 <Text className="text-text-tertiary font-body text-xs leading-4 mt-1">
                   Your photos stay on your AURA server, are shown only through private links that expire, and are never sent to an outside service.
                 </Text>
@@ -380,15 +421,35 @@ export function VirtualLookScreen() {
       <Modal
         visible={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title="Delete your photos?"
-        message="This removes your body photos, avatar and every try-on look. Your wardrobe is not affected."
+        title="Delete your body data?"
+        message="This permanently removes your body photos, avatar, body analysis and every try-on look. Your wardrobe is not affected."
         confirmLabel="Delete"
         onConfirm={() => { setConfirmDelete(false); removeAvatar.mutate(); }}
         destructive
       />
+      <Modal
+        visible={pendingPick !== null}
+        onClose={() => setPendingPick(null)}
+        title="Before you add a body photo"
+        message={CONSENT_TEXT}
+        confirmLabel="I confirm"
+        cancelLabel="Not now"
+        onConfirm={() => {
+          const pick = pendingPick;
+          setPendingPick(null);
+          setConsentAccepted(true);
+          if (pick) void pickPhoto(pick.target, pick.useCamera, true);
+        }}
+      />
     </ScreenWrapper>
   );
 }
+
+const CONSENT_TEXT =
+  'Please confirm that:\n\n• this photo is of you,\n• you are 18 or over, and\n' +
+  '• you agree to AURA storing your photo and the body analysis made from it on AURA\'s server, ' +
+  'until you delete them with "Delete my body data" or delete your account.\n\n' +
+  'Your photos are never shared with other users or sent to an outside service.';
 
 function AvatarIntro({ busy, analysisReady, onCamera, onLibrary }: { busy: boolean; analysisReady: boolean; onCamera: () => void; onLibrary: () => void }) {
   const palette = useThemeColors();
@@ -433,8 +494,18 @@ function AvatarIntro({ busy, analysisReady, onCamera, onLibrary }: { busy: boole
   );
 }
 
-function RenderOverlay({ render, starting, tryonReady, missing }: { render?: TryOnRender; starting: boolean; tryonReady: boolean; missing: string[] }) {
+function RenderOverlay({ render, starting, enabled, tryonReady, missing }: { render?: TryOnRender; starting: boolean; enabled: boolean; tryonReady: boolean; missing: string[] }) {
   const palette = useThemeColors();
+  if (!enabled) {
+    return (
+      <View className="absolute left-3 right-3 bottom-3 rounded-sm bg-surface border border-border p-3">
+        <Text className="text-text-primary font-body-medium text-sm">Try-on is turned off on this server</Text>
+        <Text className="text-text-secondary font-body text-xs mt-1">
+          It is off by default so AURA runs on 8 GB Macs. To use it, set AURA_TRYON_ENABLED=1 in Capstone_Agents/.env and restart the server.
+        </Text>
+      </View>
+    );
+  }
   if (!tryonReady) {
     return (
       <View className="absolute left-3 right-3 bottom-3 rounded-sm bg-surface border border-border p-3">

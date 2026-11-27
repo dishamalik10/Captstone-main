@@ -1,0 +1,9 @@
+# Cloudflare Pages response headers for the AURA web app (ENGINEERING_PLAN 4.7).
+# `npx expo export -p web` copies public/ into dist/, which is what Pages serves.
+# Before deploying, replace api.yourdomain.com with the real API host.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://api.yourdomain.com; font-src 'self' data:; connect-src 'self' https://api.yourdomain.com wss://api.yourdomain.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self)
+  Strict-Transport-Security: max-age=31536000; includeSubDomains

@@ -49,6 +49,7 @@ def collect() -> dict[str, Any]:
     recommendations = rows(
         """SELECT recommendation_id,run_id,rank_position,created_at
            FROM recommendations WHERE run_id IS NOT NULL AND rank_position IS NOT NULL
+             AND surface='recommend'  -- chat shows one outfit, not a ranked slate
            ORDER BY run_id,rank_position"""
     )
     feedback = rows(

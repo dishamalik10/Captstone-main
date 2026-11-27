@@ -7,6 +7,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { landing, layout, motion, withAlpha } from '@/constants/theme';
 import { cn } from '@/utils/helpers';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
@@ -17,9 +18,11 @@ import { useLogWorn } from '@/hooks';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
-import { wardrobeService } from '@/services';
+import { fitService, wardrobeService } from '@/services';
+import { FitAdviceCard } from '@/components/fit/FitAdviceCard';
+import { SizeEditor } from '@/components/fit/SizeEditor';
 import { CLOTHING_CATEGORIES } from '@/constants/categories';
-import type { ClothingCategory } from '@/types';
+import type { ClothingCategory, GarmentSize } from '@/types';
 
 export function ClothingDetailScreen() {
   const route = useRoute<RouteProp<{ params: { id: string } }>>();
@@ -32,6 +35,8 @@ export function ClothingDetailScreen() {
   const logWorn = useLogWorn();
   const [confirmWear, setConfirmWear] = useState(false);
   const [removingModel, setRemovingModel] = useState(false);
+  const [savingSize, setSavingSize] = useState(false);
+  const queryClient = useQueryClient();
   const palette = useThemeColors();
   const { width, height } = useWindowDimensions();
 
@@ -81,6 +86,21 @@ export function ClothingDetailScreen() {
     ]);
   };
 
+  const saveSize = async (size: GarmentSize | null) => {
+    setSavingSize(true);
+    try {
+      const updated = await wardrobeService.updateItem(userId, id, { size });
+      updateItem(id, updated);
+      void queryClient.invalidateQueries({ queryKey: ['fit'] });
+      showToast(size ? 'Size saved' : 'Size removed', 'success');
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
+      showToast(typeof detail === 'string' ? detail : 'Could not save the size', 'error');
+    } finally {
+      setSavingSize(false);
+    }
+  };
+
   const correctCategory = async (category: ClothingCategory) => {
     try {
       const updated = await wardrobeService.updateItem(userId, id, { category });
@@ -98,6 +118,7 @@ export function ClothingDetailScreen() {
     ['Pattern', item.pattern],
     ['Season', item.season],
     ['Brand', item.brand],
+    ...(item.size?.label ? [['Size', item.size.label] as [string, string]] : []),
   ];
 
   return (
@@ -157,6 +178,13 @@ export function ClothingDetailScreen() {
             </View>
           )}
 
+          {item.category !== 'shoes' && item.category !== 'accessories' && (
+            <FitAdviceCard
+              queryKey={['item', id, item.size ?? null]}
+              load={() => fitService.forItem(userId, id)}
+            />
+          )}
+
           {item.sourceUrl && (
             <Pressable
               accessibilityRole="link"
@@ -171,6 +199,8 @@ export function ClothingDetailScreen() {
               </Text>
             </Pressable>
           )}
+
+          <SizeEditor category={item.category} size={item.size} saving={savingSize} onSave={(size) => void saveSize(size)} />
 
           <Text className="text-text-primary font-display text-xl mt-10 mb-1">Correct the category</Text>
           <Text className="text-text-secondary font-body text-sm mb-4">

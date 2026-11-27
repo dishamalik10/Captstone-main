@@ -29,6 +29,8 @@ import {
   HelpSupportScreen,
 } from '@/screens/settings/ProfileScreen';
 import { ProfileSetupScreen } from '@/screens/onboarding/ProfileSetupScreen';
+import { PrivacyScreen } from '@/screens/settings/PrivacyScreen';
+import { PrivacyPolicyScreen } from '@/screens/legal/PrivacyPolicyScreen';
 import { StyleAnalysisScreen } from '@/screens/settings/StyleAnalysisScreen';
 import { useAuthStore } from '@/store/authStore';
 import { useNavigation } from '@react-navigation/native';
@@ -63,6 +65,8 @@ export type MainStackParamList = {
   ActivityHistory: undefined;
   Appearance: undefined;
   HelpSupport: undefined;
+  Privacy: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const Tab = createBottomTabNavigator();
@@ -139,6 +143,8 @@ export function MainNavigator() {
       <Stack.Screen name="ActivityHistory" component={ActivityHistoryScreen} />
       <Stack.Screen name="Appearance" component={AppearanceScreen} />
       <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+      <Stack.Screen name="Privacy" component={PrivacyScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>
   );
 }

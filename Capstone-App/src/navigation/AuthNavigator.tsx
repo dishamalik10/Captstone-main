@@ -8,8 +8,11 @@ import { OTPScreen } from '@/screens/auth/OTPScreen';
 import { ForgotPasswordScreen } from '@/screens/auth/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '@/screens/auth/ResetPasswordScreen';
 import { ProfileSetupScreen } from '@/screens/onboarding/ProfileSetupScreen';
+import { PrivacyPolicyScreen } from '@/screens/legal/PrivacyPolicyScreen';
 import { useAuth } from '@/hooks';
 import { authService } from '@/services';
+import { apiErrorMessage } from '@/services/api';
+import { useToastStore } from '@/components/ui/Toast';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 export type AuthStackParamList = {
@@ -22,12 +25,14 @@ export type AuthStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: undefined;
   ProfileSetup: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
 export function AuthNavigator() {
-  const { loginMutation, signupMutation, updateProfile, logout } = useAuth();
+  const { loginMutation, signupMutation, updateProfile } = useAuth();
+  const showToast = useToastStore((s) => s.show);
   const palette = useThemeColors();
 
   return (
@@ -69,15 +74,19 @@ export function AuthNavigator() {
             loading={signupMutation.isPending}
             onSignUp={(data) => {
               signupMutation.mutate(data, {
-                onSuccess: (result) => {
+                onSuccess: () => {
                   navigation.navigate('ProfileSetup');
                 },
+                onError: (error) => showToast(apiErrorMessage(error, 'Could not create your account. Try again.'), 'error'),
               });
             }}
             onLogin={() => navigation.navigate('Login')}
+            onPrivacy={() => navigation.navigate('PrivacyPolicy')}
           />
         )}
       </Stack.Screen>
+
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
 
       <Stack.Screen name="OTP">
         {({ navigation, route }) => (
@@ -97,7 +106,9 @@ export function AuthNavigator() {
           <LoginScreen
             loading={loginMutation.isPending}
             onLogin={(email, password) => {
-              loginMutation.mutate({ email, password });
+              loginMutation.mutate({ email, password }, {
+                onError: (error) => showToast(apiErrorMessage(error, 'Could not sign in. Try again.'), 'error'),
+              });
             }}
             onSignUp={() => navigation.navigate('SignUp')}
             onForgotPassword={() => navigation.navigate('ForgotPassword')}
@@ -118,17 +129,13 @@ export function AuthNavigator() {
       </Stack.Screen>
 
       <Stack.Screen name="ProfileSetup">
-        {({ navigation }) => (
+        {() => (
           <ProfileSetupScreen
             onComplete={async (data) => {
-              try {
-                const profile = await authService.updateProfile({ ...data, profileComplete: true });
-                updateProfile(profile);
-              } catch (error) {
-                await logout();
-                navigation.navigate('Login');
-                throw error;
-              }
+              // A failure stays on this screen with its message (ProfileSetupScreen shows it);
+              // a rejected session is signed out by the 401 handler, not here.
+              const profile = await authService.updateProfile({ ...data, profileComplete: true });
+              updateProfile(profile);
             }}
           />
         )}

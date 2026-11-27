@@ -28,7 +28,7 @@ Copy the entire `AURA/models/aura_fashion_gpt_final` folder from Drive into this
 source .venv312/bin/activate
 pip install -r requirements-local.txt
 export AURA_FASHION_LM_PATH="$PWD/model_artifacts/aura_fashion_gpt_final"
-uvicorn main:app --reload
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 After server startup, `GET http://127.0.0.1:8000/models/fashion-language/status` should report `weights_present: true`; `ready` becomes true after the first recommendation loads the model. Call the authenticated `/recommend` endpoint using the app, then check `/health`: `fashion_lm.loaded` must be true, and the recommendation must report `explanation_source: "aura_fashion_lm"`. A missing or incompatible checkpoint stays on the deterministic explanation path.

@@ -16,7 +16,9 @@ import { Chip } from '@/components/ui/Chip';
 import { AppBottomSheet } from '@/components/ui/BottomSheet';
 import { useWardrobeStore } from '@/store/wardrobeStore';
 import { useAuthStore } from '@/store/authStore';
-import { wardrobeService } from '@/services';
+import { wardrobeService, type ImportPreview } from '@/services';
+import { ImportPreviewSheet } from '@/components/wardrobe/ImportPreviewSheet';
+import { apiErrorMessage } from '@/services/api';
 import { useWardrobeItems } from '@/hooks';
 import { useToastStore } from '@/components/ui/Toast';
 import { COLORS_FILTER, SEASONS } from '@/constants/categories';
@@ -106,12 +108,35 @@ export function WardrobeScreen() {
     );
   };
 
+  // 4.2b: a new photo is previewed first; the user confirms the garment and its category.
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  const confirmPreview = async (choice: 'cutout' | 'original', category: ClothingCategory, index: number, sizeLabel = '') => {
+    if (!preview) return;
+    try {
+      setConfirming(true);
+      const item = await wardrobeService.confirmImport(preview.id, choice, category, index, sizeLabel);
+      setPreview(null);
+      reviewUploaded(item);
+    } catch (error) {
+      showToast(apiErrorMessage(error, 'Could not add this item. Try again.'), 'error');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const cancelPreview = () => {
+    if (preview) void wardrobeService.discardImport(preview.id).catch(() => undefined);
+    setPreview(null);
+  };
+
   const importLink = async () => {
     const url = linkUrl.trim();
     if (!url) return;
     try {
       setAnalyzing(true);
-      reviewUploaded(await wardrobeService.importFromLink(userId, url));
+      setPreview(await wardrobeService.previewLink(userId, url));
       setLinkUrl('');
     } catch (error) {
       const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
@@ -140,9 +165,9 @@ export function WardrobeScreen() {
     if (!result.canceled) {
       try {
         setAnalyzing(true);
-        reviewUploaded(await wardrobeService.upload(userId, result.assets[0]));
-      } catch {
-        showToast('Upload failed. Check that the backend is running.', 'error');
+        setPreview(await wardrobeService.previewUpload(userId, result.assets[0]));
+      } catch (error) {
+        showToast(apiErrorMessage(error, 'Upload failed. Try a different photo.'), 'error');
       } finally {
         setAnalyzing(false);
       }
@@ -386,6 +411,7 @@ export function WardrobeScreen() {
           </>
         )}
       </AppBottomSheet>
+      <ImportPreviewSheet preview={preview} saving={confirming} onConfirm={(c, cat, i, s) => void confirmPreview(c, cat, i, s)} onCancel={cancelPreview} />
     </ScreenWrapper>
   );
 }

@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SellerBadge } from '@/components/marketplace/SellerBadge';
 import { useProduct } from '@/hooks';
-import { marketplaceService } from '@/services';
+import { fitService, marketplaceService } from '@/services';
+import { FitAdviceCard } from '@/components/fit/FitAdviceCard';
 import { useAuthStore } from '@/store/authStore';
+import { ReportButton, ReportSheet } from '@/components/shared/ReportSheet';
 import { useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/ui/Toast';
 import { formatCurrency } from '@/utils/helpers';
@@ -29,6 +31,7 @@ export function ProductDetailScreen() {
   const showToast = useToastStore((s) => s.show);
   const [imageIndex, setImageIndex] = useState(0);
   const [opening, setOpening] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const { width } = useWindowDimensions();
   const imageWidth = Math.min(width, layout.reading);
 
@@ -59,7 +62,14 @@ export function ProductDetailScreen() {
 
   return (
     <ScreenWrapper>
-      <Header showBack onBack={() => navigation.goBack()} />
+      <Header showBack onBack={() => navigation.goBack()} rightAction={mine ? undefined : <ReportButton onPress={() => setReporting(true)} />} />
+      <ReportSheet
+        visible={reporting}
+        onClose={() => setReporting(false)}
+        target={{ type: 'listing', id: product.id, label: 'this listing' }}
+        user={{ id: product.seller.id, name: product.seller.name }}
+        onBlocked={() => navigation.goBack()}
+      />
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
         <View className="self-center" style={{ width: imageWidth }}>
           <FlatList
@@ -101,6 +111,9 @@ export function ProductDetailScreen() {
 
           {!!product.description && (
             <Text className="text-text-secondary font-body text-base mt-6 leading-6">{product.description}</Text>
+          )}
+          {!mine && myId && !['shoes', 'accessories'].includes(product.category) && (
+            <FitAdviceCard queryKey={['listing', product.id, product.size]} load={() => fitService.forListing(product.id)} title="Will it fit you?" />
           )}
           <View className="mt-8 pt-5 border-t border-border">
             <Text className="text-text-tertiary font-body text-sm mb-3">Sold by</Text>

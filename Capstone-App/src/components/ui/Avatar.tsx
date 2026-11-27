@@ -2,6 +2,7 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppImage } from '@/components/shared/AppImage';
 import { cn } from '@/utils/helpers';
+import { resolveApiUrl } from '@/services/api';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface AvatarProps {
@@ -38,7 +39,7 @@ export function Avatar({ uri, size = 'md', className, name }: AvatarProps) {
       )}
     >
       {uri ? (
-        <AppImage source={{ uri }} className="w-full h-full" contentFit="cover" accessibilityIgnoresInvertColors />
+        <AppImage source={{ uri: uri.startsWith('/') ? resolveApiUrl(uri) : uri }} className="w-full h-full" contentFit="cover" accessibilityIgnoresInvertColors />
       ) : letters ? (
         <Text className={cn('font-display text-text-primary', textSizes[size])}>{letters}</Text>
       ) : (

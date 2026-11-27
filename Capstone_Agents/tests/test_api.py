@@ -174,7 +174,9 @@ def test_scratch_fashion_model_status_is_exposed_without_loading_weights():
         assert payload["engine"] == "AURA scratch fashion GPT"
         assert payload["role"].startswith("explanation only")
         assert payload["ready"] is False
-        health = client.get("/health").json()
+        assert client.get("/health").json() == {"status": "ok"}  # public: nothing more
+    with TestClient(app, client=("127.0.0.1", 50000)) as local:  # on the server machine itself
+        health = local.get("/health").json()
         assert "fashion_lm" in health
 
 
@@ -223,17 +225,20 @@ def test_chat_detects_item_styling_and_returns_model_reply(monkeypatch):
     from services.app_service import _requests_outfit
     from services import llm_stylist
     assert _requests_outfit("Style my black shirt for a minimal look")
-    monkeypatch.setattr(llm_stylist, "generate_response", lambda *a, **k: "Add a red jacket for contrast.")
-    response = llm_stylist.stylist_reply(
-        message="Style my black shirt",
-        user={"fullName":"A"},
-        wardrobe=[{"item_id":"owned-shirt","category":"Top","subcategory":"Shirt","color_name":"Black"}],
-        recommendation={"item_ids":["owned-shirt"],"compatibility_score":80,"explanation":"Owned shirt"},
-        conversation_history=[],
-        wants_outfit=True,
-        fallback="Use your black shirt with the selected owned items.",
-    )
-    assert response == "Add a red jacket for contrast."
+    def reply(model_text):
+        monkeypatch.setattr(llm_stylist, "generate_response", lambda *a, **k: model_text)
+        return llm_stylist.stylist_reply(
+            message="Style my black shirt",
+            user={"fullName":"A"},
+            wardrobe=[{"item_id":"owned-shirt","category":"Top","subcategory":"Shirt","color_name":"Black"}],
+            recommendation={"item_ids":["owned-shirt"],"compatibility_score":80,"explanation":"Owned shirt"},
+            conversation_history=[],
+            wants_outfit=True,
+            fallback="Use your black shirt with the selected owned items.",
+        )
+    assert reply("Your black shirt gives a sharp contrast.") == "Your black shirt gives a sharp contrast."
+    # 4.5 (M16): a reply that keeps naming a garment the user doesn't own is not shown.
+    assert reply("Add a red jacket for contrast.") == "Use your black shirt with the selected owned items."
 
 
 def test_real_account_profile_marketplace_and_chat(monkeypatch):
@@ -259,7 +264,7 @@ def test_real_account_profile_marketplace_and_chat(monkeypatch):
             "/marketplace/products",
             headers=seller_auth,
             json={
-                "title": "Real Jacket", "price": 1499, "image_urls": ["https://example.com/jacket.jpg"],
+                "title": "Real Jacket", "price": 1499, "image_urls": ["/marketplace/images/" + "0" * 32 + ".jpg"],  # AURA-stored photos only (4.8)
                 "category": "outerwear", "condition": "good", "description": "One owner jacket",
             },
         )
@@ -381,8 +386,12 @@ def test_recommend_fetches_weather_for_city(monkeypatch):
     monkeypatch.setenv("OPENWEATHER_API_KEY", "test-key")
     monkeypatch.setattr(weather_tool, "get_weather", lambda city: WeatherContext(
         city="Delhi", temperature=38.0, condition="Clear", season="Summer"))
+    from services import weather_cache
+    weather_cache.clear()
     with TestClient(app) as client:
-        response = client.get("/weather", params={"city": "Delhi"})
+        assert client.get("/weather", params={"city": "Delhi"}).status_code == 401  # signed-in users only
+        token = client.post("/auth/signup", json={"full_name": "Weather", "email": "weather-user@example.com", "password": "secure-pass-123"}).json()["token"]
+        response = client.get("/weather", params={"city": "Delhi"}, headers={"Authorization": f"Bearer {token}"})
         assert response.status_code == 200
         assert response.json()["season"] == "Summer"
         assert response.json()["temperature"] == 38.0
@@ -464,7 +473,7 @@ def test_import_clothing_from_shopping_link(monkeypatch):
         "https://shop.example/login": Page(b"<title>Sign in</title>", "text/html"),
     }
     monkeypatch.setattr(links, "_check_public_url", lambda url: None)
-    monkeypatch.setattr(links.requests, "get", lambda url, **kwargs: pages[url])
+    monkeypatch.setattr(links, "_open", lambda url, deadline: pages[url])
     monkeypatch.setattr(vision_service, "predict", lambda _: prediction("Trousers", "Garment Lower body", "Black", "Bottom"))
 
     with TestClient(app) as client:
@@ -497,7 +506,7 @@ def test_remove_model_recuts_photo_and_reclassifies(monkeypatch):
         prediction("Dress", "Jersey Fancy", "Pink", "Dress"),  # after the cut-out
     ])
     monkeypatch.setattr(vision_service, "predict", lambda _: next(predictions))
-    monkeypatch.setattr(main_module, "cutout_garment", lambda image: None)  # upload: no person found
+    monkeypatch.setattr(main_module, "cutout_garment", lambda image, category=None: None)  # no person found
 
     with TestClient(app) as client:
         account = client.post("/auth/signup", json={"full_name": "Cutout Owner", "email": "cutout-owner@example.com", "password": "secure-pass-123"})
@@ -512,11 +521,14 @@ def test_remove_model_recuts_photo_and_reclassifies(monkeypatch):
         nobody = client.post(f"/wardrobe/{user_id}/{item['item_id']}/remove-model", headers=auth)
         assert nobody.status_code == 422
 
-        monkeypatch.setattr(main_module, "cutout_garment", lambda image: Image.new("RGB", (40, 80), (220, 150, 170)))
+        # The item's stored category is passed, so only that garment is cut out (4.2b).
+        asked = []
+        monkeypatch.setattr(main_module, "cutout_garment",
+                            lambda image, category=None: asked.append(category) or Image.new("RGB", (40, 80), (220, 150, 170)))
         fixed = client.post(f"/wardrobe/{user_id}/{item['item_id']}/remove-model", headers=auth)
         assert fixed.status_code == 200, fixed.text
         body = fixed.json()
         assert body["category"] == "Dress" and body["subcategory"] == "Dress"
         assert body["color_name"] == "Pink" and body["garment_cutout"] is True
-        assert not old_path.exists()
+        assert not old_path.exists() and asked == ["Bottom"]
         assert client.get(body["image_url"]).status_code == 200

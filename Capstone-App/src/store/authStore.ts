@@ -3,7 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { User } from '@/types';
 import { authService } from '@/services';
-import { setApiToken } from '@/services/api';
+import { apiStatus, onUnauthorized, setApiToken } from '@/services/api';
+import { realtime } from '@/services/realtime';
 
 const TOKEN_KEY = 'auth_token';
 
@@ -35,9 +36,13 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** The saved session couldn't be checked because the server didn't answer. */
+  serverUnreachable: boolean;
   hasSeenOnboarding: boolean;
   login: (user: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Forget a session the server rejected (401), without calling the server. */
+  expireSession: () => Promise<void>;
   updateProfile: (data: Partial<User>) => void;
   setHasSeenOnboarding: (value: boolean) => void;
   hydrate: () => Promise<void>;
@@ -48,6 +53,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   isAuthenticated: false,
   isLoading: true,
+  serverUnreachable: false,
   hasSeenOnboarding: false,
 
   login: async (user, token) => {
@@ -62,6 +68,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // Always clear a local session even if the server is unavailable.
     }
+    realtime.disconnect();
+    await removeToken();
+    setApiToken(null);
+    set({ user: null, token: null, isAuthenticated: false });
+  },
+
+  expireSession: async () => {
+    realtime.disconnect();
     await removeToken();
     setApiToken(null);
     set({ user: null, token: null, isAuthenticated: false });
@@ -75,8 +89,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setHasSeenOnboarding: (value) => set({ hasSeenOnboarding: value }),
 
   hydrate: async () => {
+    set({ serverUnreachable: false });
+    let token: string | null = null;
     try {
-      const token = await readToken();
+      token = await readToken();
       if (token) {
         setApiToken(token);
         const user = await authService.me();
@@ -84,10 +100,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         set({ isLoading: false });
       }
-    } catch {
-      await removeToken();
-      setApiToken(null);
-      set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+    } catch (error) {
+      if (apiStatus(error) === 401) {
+        // Only a rejected session signs the user out.
+        await removeToken();
+        setApiToken(null);
+        set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+      // Offline, server down or a server error: keep the saved session and offer a retry.
+      set({ token, isAuthenticated: false, isLoading: false, serverUnreachable: Boolean(token) });
     }
   },
 }));
+
+onUnauthorized(() => {
+  if (useAuthStore.getState().isAuthenticated) void useAuthStore.getState().expireSession();
+});

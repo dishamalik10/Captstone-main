@@ -29,6 +29,8 @@ from typing import Any
 
 import numpy as np
 
+from settings import settings
+
 SIGNALS = (
     "color", "occasion", "weather", "preference", "feedback", "learned_preference",
     "novelty", "trend", "pattern", "silhouette", "fabric_weather", "learned_compatibility",
@@ -40,7 +42,9 @@ RULE_WEIGHTS = {
     "learned_preference": 0.10, "novelty": 0.04, "trend": 0.02, "pattern": 0.04,
     "silhouette": 0.04, "fabric_weather": 0.04,
 }
-COMPAT_WEIGHT = 0.15
+# The same share the live ranker gives the outfit-compatibility model (one setting, so
+# the prior cannot drift from the score it is meant to reproduce).
+COMPAT_WEIGHT = settings.outfit_compat_weight
 PRIOR_SIGNAL_WEIGHTS = {
     **{name: weight * (1.0 - COMPAT_WEIGHT) for name, weight in RULE_WEIGHTS.items()},
     "learned_compatibility": COMPAT_WEIGHT,
@@ -228,14 +232,24 @@ def save_model(user_id: str, model: BanditModel) -> None:
         )
 
 
-def outfit_embedding(user_id: str, items: list[dict[str, Any]]) -> np.ndarray | None:
+def item_embeddings(user_id: str, items: list[dict[str, Any]]) -> dict[str, np.ndarray]:
+    """Embeddings for many items in one query (empty when unavailable)."""
     from services.item_embeddings import embeddings_for_items
 
+    unique = list({str(item["item_id"]): item for item in items}.values())
     try:
-        vectors = list(embeddings_for_items(user_id, items).values())
+        return embeddings_for_items(user_id, unique)
     except Exception:  # embeddings are optional; ranking must not fail without them
-        return None
+        return {}
+
+
+def _mean_embedding(items: list[dict[str, Any]], table: dict[str, np.ndarray]) -> np.ndarray | None:
+    vectors = [table[str(item["item_id"])] for item in items if str(item["item_id"]) in table]
     return np.mean(vectors, axis=0) if vectors else None
+
+
+def outfit_embedding(user_id: str, items: list[dict[str, Any]]) -> np.ndarray | None:
+    return _mean_embedding(items, item_embeddings(user_id, items))
 
 
 def rank(user_id: str, entries: list[dict[str, Any]], occasion: str,
@@ -246,9 +260,11 @@ def rank(user_id: str, entries: list[dict[str, Any]], occasion: str,
     if model is None or model.updates == 0:
         return False
     weights = model.sample_weights(rng or np.random.default_rng())
+    # One lookup for every garment in the slate, not one per candidate outfit.
+    table = item_embeddings(user_id, [item for entry in entries for item in entry["items"]])
     for entry in entries:
         x = model.features(entry["component_scores"], entry["items"], occasion,
-                           outfit_embedding(user_id, entry["items"]))
+                           _mean_embedding(entry["items"], table))
         entry["bandit_score"] = round(float(x @ weights) * 100.0, 1)
     return True
 
@@ -256,8 +272,8 @@ def rank(user_id: str, entries: list[dict[str, Any]], occasion: str,
 def learn_from_feedback(user_id: str, recommendation_id: str | None, action: str,
                         rating: int | None = None) -> bool:
     """Update the user's bandit from one reaction to a shown recommendation."""
-    from database import row
-    from services.wardrobe_service import list_items
+    from database import connection, row, utc_now
+    from services.wardrobe_service import items_by_ids
 
     reward = reward_for(action, rating)
     if reward is None or not recommendation_id:
@@ -269,15 +285,24 @@ def learn_from_feedback(user_id: str, recommendation_id: str | None, action: str
     )
     if record is None:
         return False
-    item_ids = set(json.loads(record["item_ids"]))
-    items = [item for item in list_items(user_id) if item["item_id"] in item_ids]
+    items = items_by_ids(user_id, json.loads(record["item_ids"]))
     if not items:
         return False
-    model = load_model(user_id) or BanditModel()
-    embedding = outfit_embedding(user_id, items)
-    x = model.features(json.loads(record["component_scores"]), items, record["occasion"], embedding)
-    model.update(x, reward, group=occasion_group(record["occasion"]), embedding=embedding)
-    save_model(user_id, model)
+    embedding = outfit_embedding(user_id, items)  # may back-fill from photos: outside the lock
+    with connection() as db:
+        # Read, update and write the model in one write transaction, so two reactions
+        # arriving together are both learned (no lost update).
+        db.execute("BEGIN IMMEDIATE")
+        state = db.execute("SELECT state_json FROM bandit_models WHERE user_id=?", (user_id,)).fetchone()
+        model = BanditModel.from_json(state["state_json"]) if state else BanditModel()
+        x = model.features(json.loads(record["component_scores"]), items, record["occasion"], embedding)
+        model.update(x, reward, group=occasion_group(record["occasion"]), embedding=embedding)
+        db.execute(
+            """INSERT INTO bandit_models(user_id, state_json, updates, updated_at) VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET state_json=excluded.state_json,
+               updates=excluded.updates, updated_at=excluded.updated_at""",
+            (user_id, model.to_json(), model.updates, utc_now()),
+        )
     return True
 
 

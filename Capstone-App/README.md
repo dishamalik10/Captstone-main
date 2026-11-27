@@ -48,8 +48,8 @@ The phone and computer must use the same network. Restart Expo after changing
 `.env`, because `EXPO_PUBLIC_` variables are bundled into the client.
 
 After backend code changes, stop the old API process and restart Uvicorn. A
-process already listening on port 8000 does not automatically load new routes
-unless Uvicorn was started with `--reload`.
+process already listening on port 8000 does not load new code by itself (the
+server is run without `--reload`).
 
 ## Required wardrobe composition
 

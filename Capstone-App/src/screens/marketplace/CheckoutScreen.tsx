@@ -137,6 +137,7 @@ export function CheckoutScreen() {
           ))}
           <Text className="text-text-tertiary font-body text-xs mt-1">
             AURA doesn’t take payment. You pay the seller directly, so only pay once you’ve agreed the details in chat.
+            Each item is held for you for 72 hours; if the seller hasn’t shipped it by then, the order is cancelled and the item goes back on sale.
           </Text>
 
           <View className="mt-6 pt-4 border-t border-text-primary mb-6 flex-row justify-between items-baseline">

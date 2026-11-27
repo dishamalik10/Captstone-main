@@ -30,7 +30,8 @@ class LocalLLM:
             if self._model is not None:
                 return
             if not path.is_file():
-                self._last_error = f"Local LLM weights are missing: {path}. Download the authorized GGUF with `python -m training.download_model`."
+                LOGGER.warning("Local LLM weights are missing: %s", path)
+                self._last_error = "Local LLM weights are missing. Download the authorized GGUF with `python -m training.download_model`."
                 raise LocalModelError(self._last_error)
             try:
                 from llama_cpp import Llama
@@ -46,7 +47,8 @@ class LocalLLM:
                 self._last_error = None
                 LOGGER.info("Loaded local LLM from %s", path)
             except Exception as exc:
-                self._last_error = f"Could not load local LLM from {path}: {exc}"
+                LOGGER.exception("Could not load local LLM from %s", path)
+                self._last_error = "Could not load the local LLM; see the server log for details."
                 raise LocalModelError(self._last_error) from exc
 
     def generate_response(
@@ -120,7 +122,7 @@ class LocalLLM:
         error = self._last_error
         if not present and not error:
             error = (
-                f"Local LLM weights are missing: {model_path}. "
+                "Local LLM weights are missing. "
                 "Run `python -m training.download_model` after installing the local runtime."
             )
         return {"engine": "llama.cpp", "path": str(model_path),

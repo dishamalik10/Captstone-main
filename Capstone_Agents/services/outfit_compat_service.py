@@ -43,9 +43,9 @@ def _load() -> Any | None:
             model.load_weights(str(settings.outfit_compat_weights_path))
             _model, _config, _last_error = model, config, None
             LOGGER.info("Loaded Polyvore outfit-compatibility model")
-        except Exception as exc:  # pragma: no cover - depends on local artifacts
-            _last_error = f"Could not load outfit-compatibility model: {exc}"
-            LOGGER.exception(_last_error)
+        except Exception:  # pragma: no cover - depends on local artifacts
+            LOGGER.exception("Could not load outfit-compatibility model")
+            _last_error = "Could not load outfit-compatibility model; see the server log for details."
     return _model
 
 

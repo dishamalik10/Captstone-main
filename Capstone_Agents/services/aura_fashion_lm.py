@@ -76,8 +76,8 @@ def load_model() -> None:
             _last_error = None
             LOGGER.info("Loaded AURA scratch fashion LM on %s from local files", device)
         except Exception as exc:
-            _last_error = f"Could not load AURA scratch fashion LM: {exc}"
-            LOGGER.exception(_last_error)
+            LOGGER.exception("Could not load AURA scratch fashion LM")
+            _last_error = "Could not load AURA scratch fashion LM; see the server log for details."
             raise RuntimeError(_last_error) from exc
 
 

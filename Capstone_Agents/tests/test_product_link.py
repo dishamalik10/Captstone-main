@@ -75,7 +75,7 @@ def test_redirect_to_private_address_is_blocked(monkeypatch):
         def __enter__(self): return self
         def __exit__(self, *args): return False
 
-    monkeypatch.setattr(links.requests, "get", lambda *a, **k: Redirect())
+    monkeypatch.setattr(links, "_open", lambda url, deadline: (links._check_public_url(url), Redirect())[1])
     with pytest.raises(ProductLinkError, match="private network"):
         import_from_link("https://shop.example/product", 5_000_000)
 
@@ -93,7 +93,7 @@ class FakeResponse:
 
 def fake_web(monkeypatch, pages: dict[str, FakeResponse]):
     monkeypatch.setattr(links, "_check_public_url", lambda url: None)
-    monkeypatch.setattr(links.requests, "get", lambda url, **kwargs: pages[url])
+    monkeypatch.setattr(links, "_open", lambda url, deadline: pages[url])
 
 
 def test_product_page_import_downloads_the_product_photo(monkeypatch):
@@ -104,7 +104,7 @@ def test_product_page_import_downloads_the_product_photo(monkeypatch):
         "https://cdn.shop.example/42.png": FakeResponse(png_bytes(), "image/png"),
     })
     result = import_from_link("shop.example/p/42", 5_000_000)  # scheme added automatically
-    assert result.content_type == "image/png" and result.suffix == ".png"
+    assert result.content_type == "image/jpeg" and result.suffix == ".jpg"  # re-encoded, metadata dropped (4.8)
     assert result.title == "Blue Tee"
     assert result.site == "shop.example"
     assert result.image_url == "https://cdn.shop.example/42.png"
@@ -121,3 +121,37 @@ def test_direct_image_link_and_blocked_shop(monkeypatch):
         import_from_link("https://blocked.example/p", 5_000_000)
     with pytest.raises(ProductLinkError, match="could not be read"):
         import_from_link("https://fake.example/x.png", 5_000_000)
+
+
+def test_the_whole_import_has_one_time_limit(monkeypatch):
+    """A slow shop can't hold a request thread past TOTAL_SECONDS (page + photo + redirects)."""
+    clock = iter([0.0, 5.0, 25.0, 30.0, 35.0])
+    monkeypatch.setattr(links.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(links, "_check_public_url", lambda url: None)
+
+    class Slow:
+        status_code, is_redirect = 200, False
+        headers = {"content-type": "image/png"}
+
+        def __init__(self, deadline):
+            self.deadline = deadline
+
+        def iter_content(self, size):
+            for chunk in (b"a", b"b"):
+                if links.time.monotonic() > self.deadline:
+                    raise ProductLinkError("The shop took too long to respond.")
+                yield chunk
+
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+
+    monkeypatch.setattr(links, "_open", lambda url, deadline: Slow(deadline))
+    with pytest.raises(ProductLinkError, match="too long"):
+        import_from_link("https://slow.example/a.png", 5_000_000)
+
+
+def test_tls_is_verified_against_the_real_hostname():
+    target = links._Target("https", "shop.example", 443, socket.AF_INET, ("93.184.216.34", 443), "/p")
+    connection = links._PinnedHTTPSConnection(target.host, target.port, cert_reqs="CERT_REQUIRED", ca_certs=links.certifi.where())
+    assert connection.host == "shop.example"  # SNI, certificate check and Host header use the name
+    assert connection.cert_reqs == "CERT_REQUIRED"

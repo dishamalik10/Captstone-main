@@ -34,6 +34,7 @@ const SECTIONS: Section[] = [
   { id: 'activity', label: 'Activity History', icon: 'time-outline', route: 'ActivityHistory' },
   { id: 'donate', label: 'Donate Unworn Clothes', icon: 'heart-outline', route: 'Donate' },
   { id: 'appearance', label: 'Appearance', icon: 'moon-outline', route: 'Appearance' },
+  { id: 'privacy', label: 'Privacy & Data', icon: 'shield-checkmark-outline', route: 'Privacy' },
   { id: 'help', label: 'Help & Support', icon: 'help-circle-outline', route: 'HelpSupport' },
 ];
 
@@ -144,6 +145,7 @@ const DISPLAY: Record<string, string> = {
   'AI Chat': 'Stylist chat',
   'Body & Sizing': 'Body and sizing',
   'My Virtual Look': 'My virtual look',
+  'Privacy & Data': 'Privacy and data',
 };
 function prettyLabel(label: string) {
   return DISPLAY[label] ?? label.charAt(0) + label.slice(1).toLowerCase();

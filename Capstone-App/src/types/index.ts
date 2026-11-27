@@ -60,6 +60,57 @@ export interface ClothingItem {
   sourceTitle?: string;
   /** True when AURA removed a model/background so only the garment remains. */
   garmentCutout?: boolean;
+  /** The garment's size, if the user added one (4.11). null = unknown. */
+  size?: GarmentSize | null;
+}
+
+/** Flat garment measurements in cm (laid flat, edge to edge). */
+export interface GarmentMeasurements {
+  chest_flat_cm?: number | null;
+  waist_flat_cm?: number | null;
+  hip_flat_cm?: number | null;
+  /** Tops and dresses: high point of the shoulder to the hem. */
+  length_cm?: number | null;
+  inseam_cm?: number | null;
+}
+
+export interface GarmentSize {
+  label?: string | null;
+  chart?: 'women' | 'men' | 'unisex' | null;
+  measurements?: GarmentMeasurements | null;
+}
+
+export type FitRating = 'tight' | 'snug' | 'regular' | 'relaxed' | 'loose';
+
+/** Size advice for one garment, for the signed-in user only (4.11). */
+export interface FitAdvice {
+  available: boolean;
+  reason?: string;
+  verdict?: string;
+  estimated?: boolean;
+  zones?: { zone: string; rating: FitRating; body_cm: number; garment_cm: number; ease_cm: number }[];
+  lengths?: { zone: string; rating: string; difference_cm: number }[];
+  garment_basis?: string;
+  notes?: string[];
+}
+
+export type MeasurementZone = 'chest' | 'waist' | 'hip' | 'shoulder' | 'inseam' | 'arm' | 'torso';
+
+export interface Measurement {
+  value: number;
+  source: 'you' | 'estimated';
+  low?: number;
+  high?: number;
+  /** Not yet shown to be within +-4 cm: show the range, not the number. */
+  range_only?: boolean;
+}
+
+export interface BodyMeasurements {
+  heightCm: number | null;
+  measurements: Partial<Record<MeasurementZone, Measurement>>;
+  labels: Record<MeasurementZone, string>;
+  lastEstimate?: { at: string; status: 'estimated' | 'not_estimated'; problems: string[] } | null;
+  method: string;
 }
 
 /** A wardrobe item that has never been marked as worn. */
@@ -74,7 +125,7 @@ export interface Outfit {
   compatibilityScore: number;
   imageUrl: string;
   /** Every piece's photo, so the outfit can be shown as one combined look. */
-  itemImages?: { url: string; label: string }[];
+  itemImages?: { url: string; label: string; id?: string }[];
   itemIds: string[];
   explanation: string;
   saved?: boolean;

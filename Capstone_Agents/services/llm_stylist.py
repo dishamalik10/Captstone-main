@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
+from services.chat_grounding import invented_garments
 from services.local_llm import LocalModelError
 from services.fashion_knowledge import retrieve_guidance
+
+LOGGER = logging.getLogger(__name__)
 
 
 def generate_response(prompt: str, **kwargs: Any) -> str:
@@ -72,11 +76,14 @@ def _pairs_dress_with_separates(reply: str, wardrobe: list[dict[str, Any]]) -> b
 def stylist_reply(*, message: str, user: dict[str, Any], wardrobe: list[dict[str, Any]],
                   recommendation: dict[str, Any] | None,
                   conversation_history: list[dict[str, str]], wants_outfit: bool,
-                  fallback: str | None = None, occasion: str | None = None) -> str:
+                  fallback: str | None = None, occasion: str | None = None,
+                  trace: dict[str, Any] | None = None) -> str:
     """Chat with the local model as a stylist that knows the user's wardrobe.
 
-    Model failures (missing weights, busy) are raised so the API reports them; the fallback text
-    is used only if the model returns nothing.
+    Model failures (missing weights, busy) are raised so the API reports them. A reply that
+    names a garment the user doesn't own is regenerated once; if the second reply does too,
+    the deterministic ``fallback`` is returned instead (4.5). ``trace``, when given, is
+    filled in with what happened (for logs and scripts/evaluate_chat_grounding.py).
     """
     owned_ids = {str(item.get("item_id")) for item in wardrobe if item.get("item_id")}
     if recommendation is not None:
@@ -130,14 +137,37 @@ def stylist_reply(*, message: str, user: dict[str, Any], wardrobe: list[dict[str
             "sweater, trousers, jeans or skirt; only suggest a jacket, shoes or accessories with it.)",
             system_prompt=system_prompt, history=history, max_tokens=260, temperature=0.5,
         )
-    # The app renders plain text, so strip markdown emphasis and heading marks.
-    response = re.sub(r"(?m)^\s*#+\s*", "", response)
-    response = re.sub(r"\*\*|__|`", "", response).strip()
-    if response:
+    response = _plain(response)
+    trace = trace if trace is not None else {}
+    trace.update(attempts=1, first_invented=invented_garments(response, wardrobe), source="model")
+    invented = trace["first_invented"]
+    if response and invented:
+        owned = "; ".join(_piece(item) for item in wardrobe[:40]) or "nothing yet"
+        response = _plain(generate_response(
+            f"{user_turn}\n\n(Note: {', '.join(invented)} {'is' if len(invented) == 1 else 'are'} not in "
+            f"{name}'s wardrobe. Only mention clothes they own: {owned}. Anything else must be phrased as "
+            "\"if you have ...\".)",
+            system_prompt=system_prompt, history=history, max_tokens=260, temperature=0.5,
+        ))
+        invented = invented_garments(response, wardrobe)
+        trace["attempts"] = 2
+    trace["final_invented"] = invented if response else []
+    if response and not invented:
         return response[:1200]
     if fallback and fallback.strip():
+        if invented:
+            LOGGER.info("Chat reply named unowned garments %s twice; using the deterministic reply", invented)
+        trace["source"] = "fallback"
         return fallback[:700]
+    if invented:
+        raise LocalModelError("Local model response named clothes that are not in the wardrobe.")
     raise LocalModelError("Local model returned an empty response.")
+
+
+def _plain(response: str) -> str:
+    """The app renders plain text, so strip markdown emphasis and heading marks."""
+    response = re.sub(r"(?m)^\s*#+\s*", "", response)
+    return re.sub(r"\*\*|__|`", "", response).strip()
 
 
 PICK_SCHEMA = {
