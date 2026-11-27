@@ -3,6 +3,7 @@
 The MediaPipe and CatVTON models are replaced by deterministic doubles, so these tests
 need no model downloads; they check AURA's own logic around those models.
 """
+import importlib.util
 import time
 import uuid
 from io import BytesIO
@@ -13,6 +14,13 @@ from PIL import Image
 
 from services import body_analysis as ba
 from services import tryon_service
+
+# Body analysis uses OpenCV, which ships with the optional try-on extras
+# (mediapipe in requirements-local.txt). Without it these tests are skipped, not failed.
+needs_cv2 = pytest.mark.skipif(
+    importlib.util.find_spec("cv2") is None,
+    reason="OpenCV (cv2) not installed; install requirements-local.txt for My Virtual Look",
+)
 
 W, H = 600, 1000
 
@@ -65,6 +73,7 @@ def test_validation_rejects_cut_off_feet_and_small_photos():
         ba.validate(small)
 
 
+@needs_cv2
 def test_avatar_keeps_the_person_and_reports_approximate_proportions():
     parsed = synthetic_person()
     warnings = ba.validate(parsed)
@@ -79,6 +88,7 @@ def test_avatar_keeps_the_person_and_reports_approximate_proportions():
     assert "not a body measurement" in result["method"]
 
 
+@needs_cv2
 def test_arms_against_the_body_lower_confidence():
     parsed = synthetic_person(arms_away=False)
     warnings = ba.validate(parsed)
@@ -94,6 +104,7 @@ def test_body_shape_rules():
     assert ba.classify_shape({"shoulder_to_hip": 1.0, "waist_to_hip": 0.95, "waist_to_shoulder": 0.95})[0] == "apple"
 
 
+@needs_cv2
 def test_tryon_masks_cover_the_garment_area_and_protect_face_and_feet():
     parsed = synthetic_person()
     _, parsing, lm = ba.build_avatar(parsed)
@@ -154,6 +165,7 @@ class FakeCatVTON:
 def _wait(client, auth, render_id, timeout=20):
     deadline = time.time() + timeout
     while time.time() < deadline:
+        tryon_service.process_next()  # what the worker process does on each poll
         body = client.get(f"/tryon/{render_id}", headers=auth).json()
         if body["status"] in {"done", "failed"}:
             return body
@@ -161,6 +173,7 @@ def _wait(client, auth, render_id, timeout=20):
     raise AssertionError("render did not finish")
 
 
+@needs_cv2
 def test_full_virtual_look_workflow(monkeypatch):
     from fastapi.testclient import TestClient
     from main import app
@@ -202,11 +215,15 @@ def test_full_virtual_look_workflow(monkeypatch):
 
         # No avatar yet: try-on explains what to do.
         assert client.post("/tryon", headers=auth, json={"item_ids": item_ids}).status_code == 409
+        # The first body photo needs the consent statement (4.3).
+        assert client.get("/avatar", headers=auth).json()["consent_given"] is False
+        refused = client.post("/avatar", headers=auth, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})
+        assert refused.status_code == 428 and "18 or over" in refused.json()["detail"]
         # Non-images are rejected before any analysis.
-        bad = client.post("/avatar", headers=auth, files={"file": ("x.jpg", b"not an image", "image/jpeg")})
+        bad = client.post("/avatar", headers=auth, data={"consent": "true"}, files={"file": ("x.jpg", b"not an image", "image/jpeg")})
         assert bad.status_code == 422
 
-        created = client.post("/avatar", headers=auth, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})
+        created = client.post("/avatar", headers=auth, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})  # consent already recorded
         assert created.status_code == 201, created.text
         avatar = created.json()
         assert avatar["analysis"]["body_shape"]
@@ -233,7 +250,7 @@ def test_full_virtual_look_workflow(monkeypatch):
         other = client.post("/auth/signup", json={"full_name": "Other", "email": f"o{uuid.uuid4().hex[:6]}@example.com", "password": "secure-pass-123"}).json()
         other_auth = {"Authorization": f"Bearer {other['token']}"}
         assert client.get(f"/tryon/{done['render_id']}", headers=other_auth).status_code == 404
-        client.post("/avatar", headers=other_auth, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})
+        client.post("/avatar", headers=other_auth, data={"consent": "true"}, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})
         assert client.post("/tryon", headers=other_auth, json={"item_ids": item_ids}).status_code == 422
 
         # Privacy: deleting removes the photos and every look, and their links stop working.
@@ -241,6 +258,10 @@ def test_full_virtual_look_workflow(monkeypatch):
         assert client.get("/avatar", headers=auth).json()["avatars"] == {}
         assert client.get(avatar["image_url"]).status_code == 404
         assert client.get(done["image_url"]).status_code == 404
+        # Deleting body data withdraws consent: the next photo asks again.
+        assert client.get("/avatar", headers=auth).json()["consent_given"] is False
+        again = client.post("/avatar", headers=auth, files={"file": ("me.jpg", jpeg(size=(600, 1000)), "image/jpeg")})
+        assert again.status_code == 428
 
 
 def test_parsing_masks_are_never_served():
@@ -250,6 +271,7 @@ def test_parsing_masks_are_never_served():
     assert not tryon_service.owns_media("nobody", Path("/tmp/parsing_x.png"))
 
 
+@needs_cv2
 def test_stray_objects_are_dropped_from_the_avatar():
     parsing = np.zeros((200, 100), dtype=np.uint8)
     parsing[20:180, 40:60] = ba.CLOTHES        # the person
@@ -260,6 +282,7 @@ def test_stray_objects_are_dropped_from_the_avatar():
     assert (cleaned[20:180, 40:60] != ba.BACKGROUND).all()
 
 
+@needs_cv2
 def test_old_trousers_left_beside_hands_and_ankles_are_found_and_filled():
     from PIL import Image
 

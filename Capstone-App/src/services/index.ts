@@ -1,4 +1,5 @@
-import { api, resolveApiUrl } from './api';
+import { api, BASE_URL, resolveApiUrl } from './api';
+import type { BodyMeasurements, FitAdvice, GarmentSize, MeasurementZone } from '@/types';
 import type { ChatMessage, ClothingCategory, ClothingItem, DonationCandidate, Occasion, Outfit, Product, SocialPost, User, WardrobeStats, Weather, SellerDashboard, MarketOrder, Conversation, MarketMessage, ShippingAddress, PaymentMethod, ProductCondition, WearLog, StyleAnalysis, PurchaseImpact, AvatarView, BodyAnalysis, TryOnRender, TryOnStatus, VirtualAvatar } from '@/types';
 import { Platform } from 'react-native';
 
@@ -33,6 +34,7 @@ interface ApiClothingItem {
   source_title?: string | null;
   garment_cutout?: boolean;
   available: boolean;
+  size?: GarmentSize | null;
   created_at: string;
 }
 
@@ -103,6 +105,7 @@ function mapItem(item: ApiClothingItem): ClothingItem {
     sourceUrl: item.source_url ?? undefined,
     sourceTitle: item.source_title ?? undefined,
     garmentCutout: item.garment_cutout ?? false,
+    size: item.size ?? null,
   };
 }
 
@@ -122,6 +125,7 @@ function mapOutfit(
     itemImages: recommendation.items.map((item) => ({
       url: resolveApiUrl(item.image_url),
       label: `${item.color_name} ${item.subcategory}`,
+      id: item.item_id,
     })),
     itemIds: recommendation.item_ids,
     explanation: recommendation.explanation,
@@ -135,9 +139,30 @@ function mapOutfit(
   };
 }
 
+/** Profile photos AURA stored, e.g. /marketplace/images/<32 hex>.jpg (4.8). */
+const STORED_PHOTO = /^\/marketplace\/images\/[0-9a-f]{32}\.(jpg|png|webp)$/;
+
+function stripBase(url: string): string {
+  return url.startsWith(BASE_URL) ? url.slice(BASE_URL.length) : url;
+}
+
+async function uploadProfilePhoto(uri: string): Promise<User> {
+  const form = new FormData();
+  const name = `profile-${Date.now()}.jpg`;
+  if (Platform.OS === 'web') {
+    form.append('file', await (await fetch(uri)).blob(), name);
+  } else {
+    form.append('file', { uri, name, type: 'image/jpeg' } as unknown as Blob);
+  }
+  return (await api.post<User>('/users/me/photo', form)).data;
+}
+
+/** Web sessions are 7 days (token in localStorage), app sessions 30 (secure store). */
+const SESSION_CLIENT = Platform.OS === 'web' ? 'web' : 'app';
+
 export const authService = {
   async login(email: string, password: string) {
-    const { data } = await api.post<{ user: User; token: string }>('/auth/login', { email, password });
+    const { data } = await api.post<{ user: User; token: string }>('/auth/login', { email, password, client: SESSION_CLIENT });
     return data;
   },
   async signup(data: { fullName: string; email: string; password?: string }) {
@@ -145,6 +170,7 @@ export const authService = {
       full_name: data.fullName,
       email: data.email,
       password: data.password,
+      client: SESSION_CLIENT,
     });
     return response.data;
   },
@@ -154,12 +180,104 @@ export const authService = {
   async logout() {
     await api.post('/auth/logout');
   },
+  /** Ends every session of this account, on every device. */
+  async logoutEverywhere() {
+    await api.post('/auth/logout-all');
+  },
+  /** Permanently deletes the account and everything it owns. */
+  async deleteAccount(password: string) {
+    await api.post('/auth/delete-account', { password });
+  },
   async updateProfile(data: Partial<User>) {
-    return (await api.patch<User>('/users/me', data)).data;
+    const { avatarUrl, ...rest } = data;
+    const patch: Partial<User> = rest;
+    if (avatarUrl && STORED_PHOTO.test(stripBase(avatarUrl))) {
+      patch.avatarUrl = stripBase(avatarUrl);
+    } else if (avatarUrl) {
+      // A photo just picked on this device: upload it; the server stores a clean copy.
+      await uploadProfilePhoto(avatarUrl);
+    }
+    return (await api.patch<User>('/users/me', patch)).data;
   },
 };
 
+type ApiCategory = ApiClothingItem['category'];
+
+interface ApiImportPreview {
+  preview_id: string;
+  suggested_category: ApiCategory | null;
+  person_found: boolean;
+  original_url: string;
+  candidates: Partial<Record<ApiCategory, { index: number; label: string; image_url: string }[]>>;
+  source_title: string | null;
+  suggested_size?: string | null;
+}
+
+export interface ImportCandidate { index: number; label: string; imageUrl: string }
+
+/** A photo waiting for the user to confirm the garment and its category (ENGINEERING_PLAN 4.2b). */
+export interface ImportPreview {
+  id: string;
+  suggestedCategory: ClothingCategory | null;
+  /** Someone is wearing the garment, so cut-outs were made. */
+  personFound: boolean;
+  originalUrl: string;
+  candidates: Partial<Record<ClothingCategory, ImportCandidate[]>>;
+  sourceTitle: string | null;
+  /** A size the shop page named (4.11), offered at confirm time. */
+  suggestedSize: string | null;
+}
+
+function mapPreview(data: ApiImportPreview): ImportPreview {
+  const candidates: Partial<Record<ClothingCategory, ImportCandidate[]>> = {};
+  for (const [category, found] of Object.entries(data.candidates) as [ApiCategory, ApiImportPreview['candidates'][ApiCategory]][]) {
+    if (found?.length) {
+      candidates[categoryToApp[category]] = found.map((c) => ({ index: c.index, label: c.label, imageUrl: resolveApiUrl(c.image_url) }));
+    }
+  }
+  return {
+    id: data.preview_id,
+    suggestedCategory: data.suggested_category ? categoryToApp[data.suggested_category] : null,
+    personFound: data.person_found,
+    originalUrl: resolveApiUrl(data.original_url),
+    candidates,
+    sourceTitle: data.source_title,
+    suggestedSize: data.suggested_size ?? null,
+  };
+}
+
+async function photoForm(userId: string, asset: UploadAsset): Promise<FormData> {
+  const form = new FormData();
+  form.append('user_id', userId);
+  const name = asset.fileName || `wardrobe-${Date.now()}.jpg`;
+  if (Platform.OS === 'web') {
+    form.append('file', asset.file ?? await (await fetch(asset.uri)).blob(), name);
+  } else {
+    form.append('file', { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' } as unknown as Blob);
+  }
+  return form;
+}
+
 export const wardrobeService = {
+  /** Upload a photo and get the garment cut-outs to choose from; nothing is saved yet. */
+  async previewUpload(userId: string, asset: UploadAsset): Promise<ImportPreview> {
+    return mapPreview((await api.post<ApiImportPreview>('/wardrobe/upload/preview', await photoForm(userId, asset))).data);
+  },
+  /** The same for a shopping link (product page or direct image address). */
+  async previewLink(userId: string, url: string): Promise<ImportPreview> {
+    return mapPreview((await api.post<ApiImportPreview>('/wardrobe/import-link/preview', { user_id: userId, url })).data);
+  },
+  /** Save the item: the chosen cut-out, or the original photo, in the user's category. */
+  async confirmImport(previewId: string, choice: 'cutout' | 'original', category: ClothingCategory, index = 0, sizeLabel?: string): Promise<ClothingItem> {
+    const { data } = await api.post<ApiClothingItem>(`/wardrobe/imports/${encodeURIComponent(previewId)}/confirm`, {
+      choice, category: categoryToApi[category], index,
+      ...(sizeLabel?.trim() ? { size: { label: sizeLabel.trim() } } : {}),
+    });
+    return mapItem(data);
+  },
+  async discardImport(previewId: string): Promise<void> {
+    await api.delete(`/wardrobe/imports/${encodeURIComponent(previewId)}`);
+  },
   async getItems(userId: string): Promise<ClothingItem[]> {
     const { data } = await api.get<ApiClothingItem[]>(`/wardrobe/${encodeURIComponent(userId)}`);
     return data.filter((item) => item.available).map(mapItem);
@@ -203,6 +321,8 @@ export const wardrobeService = {
     if (data.season) payload.seasons = data.season === 'all'
       ? ['Spring', 'Summer', 'Autumn', 'Winter']
       : [data.season === 'fall' ? 'Autumn' : data.season.charAt(0).toUpperCase() + data.season.slice(1)];
+    // An empty size object clears it on the server.
+    if (data.size !== undefined) payload.size = data.size ?? {};
     const response = await api.patch<ApiClothingItem>(
       `/wardrobe/${encodeURIComponent(userId)}/${encodeURIComponent(id)}`,
       payload,
@@ -426,6 +546,26 @@ export const socialService = {
   },
 };
 
+export type ReportTarget = 'listing' | 'conversation' | 'post' | 'user';
+export type ReportReason = 'spam' | 'scam' | 'offensive' | 'harassment' | 'prohibited_item' | 'other';
+export interface BlockedUser { id: string; name: string; blockedAt: string }
+
+/** Report and block (ENGINEERING_PLAN 4.4). */
+export const moderationService = {
+  async report(targetType: ReportTarget, targetId: string, reason: ReportReason, details = '') {
+    await api.post('/reports', { target_type: targetType, target_id: targetId, reason, details });
+  },
+  async block(userId: string) {
+    await api.post(`/users/${encodeURIComponent(userId)}/block`);
+  },
+  async unblock(userId: string) {
+    await api.delete(`/users/${encodeURIComponent(userId)}/block`);
+  },
+  async blocked() {
+    return (await api.get<BlockedUser[]>('/users/me/blocks')).data;
+  },
+};
+
 export const donationService = {
   /** Items never marked as worn, owned for at least `minDays` days, oldest first. */
   async getCandidates(minDays = 0): Promise<DonationCandidate[]> {
@@ -532,13 +672,64 @@ function mapRender(raw: ApiRender): TryOnRender {
   };
 }
 
+interface ApiMeasurements {
+  height_cm: number | null;
+  measurements: BodyMeasurements['measurements'];
+  labels: BodyMeasurements['labels'];
+  estimate?: BodyMeasurements['lastEstimate'];
+  method: string;
+  status?: 'estimated' | 'not_estimated';
+  problems?: string[];
+}
+
+function mapMeasurements(data: ApiMeasurements): BodyMeasurements {
+  return { heightCm: data.height_cm, measurements: data.measurements, labels: data.labels, lastEstimate: data.estimate ?? null, method: data.method };
+}
+
+/** Body measurements in cm (4.11). Body data: only ever the signed-in user's own. */
+export const measurementService = {
+  async get(): Promise<BodyMeasurements> {
+    return mapMeasurements((await api.get<ApiMeasurements>('/body/measurements')).data);
+  },
+  /** Typed values win over estimates; null clears a typed value. */
+  async update(values: Partial<Record<MeasurementZone, number | null>> & { heightCm?: number }): Promise<BodyMeasurements> {
+    const { heightCm, ...zones } = values;
+    const payload = { ...zones, ...(heightCm ? { height_cm: heightCm } : {}) };
+    return mapMeasurements((await api.put<ApiMeasurements>('/body/measurements', payload)).data);
+  },
+  /** Measure the front avatar and this side photo (the side photo is not stored). */
+  async estimate(asset: UploadAsset, heightCm?: number): Promise<BodyMeasurements & { status: 'estimated' | 'not_estimated'; problems: string[] }> {
+    const form = new FormData();
+    const name = asset.fileName || `side-${Date.now()}.jpg`;
+    if (Platform.OS === 'web') {
+      form.append('file', asset.file ?? await (await fetch(asset.uri)).blob(), name);
+    } else {
+      form.append('file', { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' } as unknown as Blob);
+    }
+    if (heightCm) form.append('height_cm', String(heightCm));
+    const { data } = await api.post<ApiMeasurements>('/body/measurements/estimate', form);
+    return { ...mapMeasurements(data), status: data.status ?? 'not_estimated', problems: data.problems ?? [] };
+  },
+};
+
+/** Size advice, computed for the signed-in user (4.11). Display only. */
+export const fitService = {
+  async forItem(userId: string, itemId: string): Promise<FitAdvice> {
+    return (await api.get<FitAdvice>(`/wardrobe/${encodeURIComponent(userId)}/${encodeURIComponent(itemId)}/fit`)).data;
+  },
+  async forListing(productId: string): Promise<FitAdvice> {
+    return (await api.get<FitAdvice>(`/marketplace/products/${encodeURIComponent(productId)}/fit`)).data;
+  },
+};
+
 export const tryonService = {
-  async getAvatars(): Promise<{ avatars: Partial<Record<AvatarView, VirtualAvatar>>; status: TryOnStatus }> {
-    const { data } = await api.get<{ avatars: Record<string, ApiAvatar>; status: Record<string, any> }>('/avatar');
+  async getAvatars(): Promise<{ avatars: Partial<Record<AvatarView, VirtualAvatar>>; status: TryOnStatus; consentGiven: boolean }> {
+    const { data } = await api.get<{ avatars: Record<string, ApiAvatar>; status: Record<string, any>; consent_given?: boolean }>('/avatar');
     const avatars: Partial<Record<AvatarView, VirtualAvatar>> = {};
     Object.values(data.avatars).forEach((avatar) => { avatars[avatar.view] = mapAvatar(avatar); });
     return {
       avatars,
+      consentGiven: Boolean(data.consent_given),
       status: {
         enabled: data.status.enabled,
         bodyAnalysisReady: data.status.body_analysis_ready,
@@ -549,9 +740,11 @@ export const tryonService = {
       },
     };
   },
-  async uploadAvatar(asset: UploadAsset, view: AvatarView): Promise<VirtualAvatar> {
+  /** `consent` is the user's answer on the consent screen; the server records it once. */
+  async uploadAvatar(asset: UploadAsset, view: AvatarView, consent = false): Promise<VirtualAvatar> {
     const form = new FormData();
     form.append('view', view);
+    if (consent) form.append('consent', 'true');
     const name = asset.fileName || `body-${Date.now()}.jpg`;
     if (Platform.OS === 'web') {
       const blob = asset.file ?? await (await fetch(asset.uri)).blob();

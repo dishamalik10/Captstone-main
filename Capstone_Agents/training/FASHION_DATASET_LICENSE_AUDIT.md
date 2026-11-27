@@ -14,6 +14,13 @@ Sources: [DeepFashion official terms](https://mmlab.ie.cuhk.edu.hk/projects/Deep
 
 The Fashionpedia reference is limited to the ontology/schema. It does not make Fashionpedia a source for outfit compatibility, color harmony, proportion recommendations, or occasion suitability. Those example judgments are clearly labeled as original, non-empirical WearBefore heuristics.
 
+## Runtime models (not used for training)
+
+| Model | Use in AURA | Licence | Decision |
+|---|---|---|---|
+| SegFormer-B2 Clothes (`mattmdjaga/segformer_b2_clothes`, revision `584abc1e1d260e23c0fc627c5217a09b2b461046`, ONNX export, SHA-256 `a93a8dac171b5c1fcc53632a8bfc180bfd9759ea69a3e207451bb07f76add54f`) | Garment isolation on imports and uploads (ENGINEERING_PLAN 4.2b): keeps only the chosen garment from a photo of someone wearing it. Runs locally; no images leave the server. | The model card lists the licence as "other", pointing to the NVlabs SegFormer licence (https://github.com/NVlabs/SegFormer/blob/master/LICENSE), which is believed to be non-commercial. The fine-tune's training data (ATR human-parsing) has its own research terms. **Owner action:** read the NVlabs licence to confirm. | Accepted for a free, non-commercial release only. If AURA ever charges money or shows ads, replace it (for example with a commercially licensed hosted segmentation API) before doing so. |
+| Test fixture `tests/fixtures/blouse_and_jeans_cc0.jpg` | Real-photo test of the SegFormer cut-out | CC0 1.0 (Wikimedia Commons, by Keymeulen) | Used; attribution in `tests/fixtures/README.md`. |
+
 ## Other training provenance
 
 The original synthetic corpus previously marked several color-theory rows as paraphrases of RMIT's CC BY-NC 4.0 resource. Those training rows are now attributed to the original WearBefore heuristic source and carry no RMIT source ID. This removes the NC source from the training splits. RMIT remains listed in the runtime knowledge registry for transparency but is not in the generated SFT manifest's used-source list. Other sourced examples retain row-level attribution to CC BY material from the University of Arkansas apparel workbook and Iowa State dress/diversity textbook.

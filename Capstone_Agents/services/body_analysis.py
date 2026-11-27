@@ -364,8 +364,22 @@ def _rgb_to_lab(rgb: np.ndarray) -> tuple[float, float, float]:
 GARMENT_REGION = {"Top": "upper", "Outerwear": "upper", "Bottom": "lower", "Dress": "overall"}
 
 
-def tryon_mask(parsing: np.ndarray, lm: np.ndarray, region: str) -> Image.Image:
-    """Region the try-on model may repaint: generous around the garment area, never the face, hair or feet."""
+@dataclass(frozen=True)
+class MaskFit:
+    """How a garment's size changes its try-on mask (4.11, VQ8); see services/tryon_fit.py.
+
+    ``hem_y``: where the garment ends (avatar pixel row), from its length; None keeps the
+    default extent. ``widen_px``: extra width on each side for a roomier cut."""
+    hem_y: float | None = None
+    widen_px: int = 0
+
+
+def tryon_mask(parsing: np.ndarray, lm: np.ndarray, region: str, fit: MaskFit | None = None) -> Image.Image:
+    """Region the try-on model may repaint: generous around the garment area, never the face, hair or feet.
+
+    Without ``fit`` the mask follows the body and the clothes in the photo. With it, the
+    garment's hem and width follow its size (a crop top stops above the waist, a kurta
+    reaches the knee, an oversized cut is wider)."""
     import cv2
 
     height, width = parsing.shape
@@ -388,16 +402,29 @@ def tryon_mask(parsing: np.ndarray, lm: np.ndarray, region: str) -> Image.Image:
             filled[y, xs.min():xs.max() + 1] = True
         return filled
 
+    hem = None if fit is None or fit.hem_y is None else float(np.clip(fit.hem_y, shoulder_y + torso * 0.4, ankle_y))
+    shoulder_span = float(np.hypot(*(lm[L_SHOULDER, :2] - lm[R_SHOULDER, :2])))
     mask = np.zeros_like(person)
     if region in {"upper", "overall"}:
-        upper = clothes_or_skin & band(shoulder_y - torso * 0.12, hip_y + torso * 0.15)
-        mask |= row_fill(upper & band(shoulder_y, hip_y + torso * 0.15)) | upper
+        upper_bottom = hip_y + torso * 0.15
+        if region == "upper" and hem is not None:
+            upper_bottom = hem + torso * 0.03
+        upper = clothes_or_skin & band(shoulder_y - torso * 0.12, min(upper_bottom, hip_y + torso * 0.15))
+        mask |= row_fill(upper & band(shoulder_y, min(upper_bottom, hip_y + torso * 0.15))) | upper
+        if region == "upper" and hem is not None:
+            no_arms = _remove_arms(clothes_or_skin, lm, shoulder_span)
+            if upper_bottom > hip_y + torso * 0.15:
+                # A long top (kurta, longline coat) also covers the hips and thighs.
+                mask |= row_fill(no_arms & band(hip_y + torso * 0.15, upper_bottom))
+            else:
+                # A short top: the photo's own top below the new hem must be repainted too.
+                mask |= (parsing == CLOTHES) & no_arms & band(upper_bottom, hip_y + torso * 0.15)
     if region in {"lower", "overall"}:
         lower_top = shoulder_y + torso * (0.55 if region == "lower" else 0.3)
         # Arms hang beside the hips: erase them so a skirt change does not repaint the forearms.
-        shoulder_span = float(np.hypot(*(lm[L_SHOULDER, :2] - lm[R_SHOULDER, :2])))
         legs_and_hips = _remove_arms(clothes_or_skin, lm, shoulder_span)
-        lower = legs_and_hips & band(lower_top, ankle_y)
+        lower_bottom = ankle_y if hem is None else min(ankle_y, hem + torso * 0.03)
+        lower = legs_and_hips & band(lower_top, lower_bottom)
         # Existing clothes below the waist must be repainted too (e.g. jeans -> skirt).
         lower |= (parsing == CLOTHES) & legs_and_hips & band(lower_top, height)
         # Bound sideways to hips/legs plus room for a flared skirt, so arm remnants cannot widen it.
@@ -410,6 +437,11 @@ def tryon_mask(parsing: np.ndarray, lm: np.ndarray, region: str) -> Image.Image:
         mask |= (parsing == CLOTHES) & band(shoulder_y - torso * 0.12, knee_y + torso)
 
     mask_u8 = mask.astype(np.uint8) * 255
+    if fit is not None and fit.widen_px > 0:
+        # A roomier cut: widen sideways below the shoulders (never up into the neck).
+        widened = cv2.dilate(mask_u8, np.ones((1, 2 * int(fit.widen_px) + 1), np.uint8))
+        below = rows[:, 0] >= shoulder_y
+        mask_u8[below] = widened[below]
     # Generous growth: any sliver of the old garment left at the mask edge gets extended by the model.
     grow = max(3, int(height * 0.03)) | 1
     mask_u8 = cv2.dilate(mask_u8, np.ones((grow, grow), np.uint8))

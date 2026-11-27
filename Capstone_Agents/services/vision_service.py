@@ -112,6 +112,10 @@ class VisionService:
                     )
         return self._model
 
+    def load(self) -> None:
+        """Load the CNN now (startup) instead of on the first upload."""
+        self._load_model()
+
     def _open(self, image_path: Path) -> Image.Image:
         image = Image.open(image_path)
         # Phone photos are often stored sideways with an EXIF rotation tag.

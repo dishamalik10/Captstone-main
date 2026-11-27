@@ -631,6 +631,7 @@ def recommend(
     exclude_recommendation_ids: list[str] | None = None,
     *,
     use_stylist: bool = False,
+    surface: str = "recommend",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     wardrobe = list_items(user_id, available_only=True)
     steps = [execution_step("wardrobe_retrieval_agent", "completed", available_items=len(wardrobe))]
@@ -751,6 +752,7 @@ def recommend(
 
     result = []
     run_id = f"run_{uuid.uuid4().hex[:16]}"
+    records = []
     for rank_position, entry in enumerate(selected, start=1):
         recommendation_id = f"rec_{uuid.uuid4().hex[:12]}"
         explanation = _explanation(
@@ -767,32 +769,60 @@ def recommend(
             analysis=analyze_outfit(entry["items"], occasion, temperature, condition),
         )
         entry.pop("critic", None)
-        with connection() as db:
-            db.execute(
-                """
-                INSERT INTO recommendations(
-                    recommendation_id, user_id, occasion, item_ids,
-                    component_scores, total_score, explanation, run_id,
-                    rank_position, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    recommendation_id,
-                    user_id,
-                    occasion,
-                    json.dumps(entry["item_ids"]),
-                    json.dumps(entry["component_scores"]),
-                    entry["compatibility_score"],
-                    explanation,
-                    run_id,
-                    rank_position,
-                    utc_now(),
-                ),
-            )
+        records.append((
+            recommendation_id,
+            user_id,
+            occasion,
+            json.dumps(entry["item_ids"]),
+            json.dumps(entry["component_scores"]),
+            entry["compatibility_score"],
+            explanation,
+            entry.get("explanation_source", "rules"),
+            surface,
+            run_id,
+            rank_position,
+            utc_now(),
+        ))
         result.append(entry)
+    # The whole slate is written in one transaction: a failure never leaves half a run (M7).
+    with connection() as db:
+        db.executemany(
+            """
+            INSERT INTO recommendations(
+                recommendation_id, user_id, occasion, item_ids,
+                component_scores, total_score, explanation, explanation_source,
+                surface, run_id, rank_position, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            records,
+        )
     trace = summarize_agent_run(plan, len(entries), len(ranked), revised)
     trace["agents"] = steps
     return result, trace
+
+
+def record_explanations(user_id: str, recommendations: list[dict[str, Any]]) -> None:
+    """Store the explanation the user actually saw (after the explainer or chat rewrote it)."""
+    with connection() as db:
+        db.executemany(
+            "UPDATE recommendations SET explanation=?, explanation_source=? WHERE recommendation_id=? AND user_id=?",
+            [
+                (rec.get("explanation") or "", rec.get("explanation_source", "rules"), rec["recommendation_id"], user_id)
+                for rec in recommendations if rec.get("recommendation_id")
+            ],
+        )
+
+
+def discard_unshown(user_id: str, shown_id: str, recommendations: list[dict[str, Any]]) -> None:
+    """Delete the rows of a slate the user never saw (chat shows one outfit of many)."""
+    unshown = [rec["recommendation_id"] for rec in recommendations if rec.get("recommendation_id") != shown_id]
+    if not unshown:
+        return
+    with connection() as db:
+        db.execute(
+            f"DELETE FROM recommendations WHERE user_id=? AND recommendation_id IN ({','.join('?' for _ in unshown)})",
+            (user_id, *unshown),
+        )
 
 
 def save_feedback(data: dict[str, Any]) -> None:

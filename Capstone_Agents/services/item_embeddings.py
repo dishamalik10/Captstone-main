@@ -7,13 +7,13 @@ time the compatibility model needs them.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from database import connection, rows
 from ml.outfit_compat import EMBEDDING_DIM
+from services.media_paths import media_path
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def _backfill(user_id: str, records: list[dict[str, Any]]) -> dict[str, np.ndarr
 
     computed: dict[str, np.ndarray] = {}
     for record in records:
-        path = Path(record["image_path"])
+        path = media_path(record["image_path"])
         if not path.is_file():
             continue
         try:

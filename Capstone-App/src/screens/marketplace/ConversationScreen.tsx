@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { Header } from '@/components/shared/Header';
+import { ReportButton, ReportSheet } from '@/components/shared/ReportSheet';
 import { AppImage } from '@/components/shared/AppImage';
 import { useToastStore } from '@/components/ui/Toast';
 import { useConversation } from '@/hooks';
@@ -37,6 +38,7 @@ export function ConversationScreen() {
   const { data, isLoading, isError, refetch } = useConversation(route.params.id);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const listRef = useRef<FlatList<MarketMessage>>(null);
   const messages = data?.messages ?? [];
   const otherId = data?.conversation.otherUser.id;
@@ -85,6 +87,14 @@ export function ConversationScreen() {
         subtitle={typing ? 'typing…' : online ? 'Online' : conversation.role === 'seller' ? 'Interested in your listing' : 'Seller'}
         showBack
         onBack={() => navigation.goBack()}
+        rightAction={<ReportButton onPress={() => setReporting(true)} />}
+      />
+      <ReportSheet
+        visible={reporting}
+        onClose={() => setReporting(false)}
+        target={{ type: 'conversation', id: conversation.id, label: 'this conversation' }}
+        user={{ id: conversation.otherUser.id, name: conversation.otherUser.name }}
+        onBlocked={() => navigation.goBack()}
       />
       <Pressable
         accessibilityRole="link"

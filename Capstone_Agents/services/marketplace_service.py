@@ -7,13 +7,20 @@ seller, and the order records that choice.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from database import connection, ensure_user, row, rows, utc_now
+from services import moderation_service as moderation
+from services.image_sanitize import reencode
+from services.media_paths import media_path
 from settings import settings
+
+LOGGER = logging.getLogger(__name__)
 
 LISTING_STATUSES = {"active", "paused", "sold"}
 CONDITIONS = {"new", "like_new", "good", "fair"}
@@ -40,9 +47,12 @@ def image_dir() -> Path:
     return path
 
 
-def save_listing_photo(content: bytes, suffix: str) -> str:
+def save_listing_photo(content: bytes) -> str:
+    """Store a public photo (listing or profile picture), re-encoded so no EXIF or other
+    metadata (e.g. the GPS position of the seller's home) is published."""
+    clean, _content_type, suffix = reencode(content)
     name = f"{uuid.uuid4().hex}{suffix}"
-    (image_dir() / name).write_bytes(content)
+    (image_dir() / name).write_bytes(clean)
     return f"{IMAGE_ROUTE}{name}"
 
 
@@ -53,7 +63,7 @@ def copy_wardrobe_photo(user_id: str, item_id: str) -> tuple[str, dict[str, Any]
     )
     if item is None:
         raise MarketplaceError("That wardrobe item was not found.", 404)
-    source = Path(item["image_path"])
+    source = media_path(item["image_path"])
     if not source.is_file():
         raise MarketplaceError("That wardrobe item's photo is missing.", 404)
     name = f"{uuid.uuid4().hex}{source.suffix or '.jpg'}"
@@ -94,9 +104,14 @@ def _product(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def list_products(query: str = "", category: str = "") -> list[dict[str, Any]]:
+def list_products(query: str = "", category: str = "", viewer_id: str | None = None) -> list[dict[str, Any]]:
+    expire_unshipped_orders()
     sql = PRODUCT_SELECT + " WHERE p.status='active'"
     params: list[Any] = []
+    hidden = sorted(moderation.hidden_from(viewer_id))
+    if hidden:  # sellers the viewer blocked (4.4)
+        sql += f" AND p.seller_id NOT IN ({','.join('?' for _ in hidden)})"
+        params += hidden
     if category and category in CATEGORIES:
         sql += " AND p.category=?"
         params.append(category)
@@ -222,16 +237,54 @@ def _order(record: dict[str, Any]) -> dict[str, Any]:
         "seller": {"id": record["seller_id"], "name": record.get("seller_name") or "Seller"},
         "shippingAddress": json.loads(record.get("shipping_address") or "{}"),
         "paymentMethod": record.get("payment_method") or "cod",
+        # Unshipped orders are cancelled automatically after this time (72 h hold).
+        "reservedUntil": record.get("reserved_until"),
     }
+
+
+# An unshipped order holds a one-off item off the market for at most this long.
+RESERVATION_HOURS = 72
+# Unshipped (pending) orders one buyer may hold at once.
+MAX_OPEN_ORDERS_PER_BUYER = 3
+
+
+def _reserved_until(created: datetime) -> str:
+    return (created + timedelta(hours=RESERVATION_HOURS)).isoformat()
+
+
+def expire_unshipped_orders(now: datetime | None = None) -> int:
+    """Cancel pending orders the seller has not shipped within the reservation window
+    and put their items back on sale. Returns how many were cancelled."""
+    current = (now or datetime.now(timezone.utc)).isoformat()
+    cancelled = 0
+    with connection() as db:
+        stale = db.execute(
+            "SELECT order_id, product_id FROM orders WHERE status='pending' AND reserved_until < ?", (current,),
+        ).fetchall()
+        for order in stale:
+            changed = db.execute(
+                "UPDATE orders SET status='cancelled', updated_at=? WHERE order_id=? AND status='pending'",
+                (current, order["order_id"]),
+            ).rowcount
+            if changed:
+                cancelled += 1
+                db.execute("UPDATE products SET status='active', updated_at=? WHERE product_id=? AND status='sold'",
+                           (current, order["product_id"]))
+    if cancelled:
+        LOGGER.info("Cancelled %d unshipped orders after %d h", cancelled, RESERVATION_HOURS)
+    return cancelled
 
 
 def create_order(buyer_id: str, product_ids: list[str], shipping_address: dict[str, str] | None = None,
                  payment_method: str = "cod") -> list[str]:
     ensure_user(buyer_id)
+    expire_unshipped_orders()
     order_ids: list[str] = []
-    now = utc_now()
+    created = datetime.now(timezone.utc)
+    now = created.isoformat()
+    wanted = list(dict.fromkeys(product_ids))
     with connection() as db:
-        for product_id in dict.fromkeys(product_ids):
+        for index, product_id in enumerate(wanted):
             product = db.execute(
                 "SELECT * FROM products WHERE product_id=? AND status='active'", (product_id,),
             ).fetchone()
@@ -239,21 +292,39 @@ def create_order(buyer_id: str, product_ids: list[str], shipping_address: dict[s
                 raise MarketplaceError("An item in your bag is no longer available.", 409)
             if product["seller_id"] == buyer_id:
                 raise MarketplaceError("You cannot buy your own listing.", 409)
+            # Reserve the one-off item. The status guard makes this safe when two buyers
+            # order at once: only one UPDATE matches, the other buyer's whole order is rolled back.
+            reserved = db.execute(
+                "UPDATE products SET status='sold', updated_at=? WHERE product_id=? AND status='active'",
+                (now, product_id),
+            ).rowcount
+            if not reserved:
+                raise MarketplaceError("An item in your bag is no longer available.", 409)
+            if index == 0:
+                # Counted after the first write, so this transaction holds the write lock and
+                # two simultaneous checkouts by the same buyer cannot both pass the limit.
+                open_orders = db.execute(
+                    "SELECT COUNT(*) FROM orders WHERE buyer_id=? AND status='pending'", (buyer_id,),
+                ).fetchone()[0]
+                if open_orders + len(wanted) > MAX_OPEN_ORDERS_PER_BUYER:
+                    raise MarketplaceError(
+                        f"You can have at most {MAX_OPEN_ORDERS_PER_BUYER} unshipped orders at a time. "
+                        "Complete or cancel one first.", 409,
+                    )
             order_id = f"ord_{uuid.uuid4().hex[:16]}"
             db.execute(
                 """INSERT INTO orders(order_id, buyer_id, seller_id, product_id, amount, status, created_at,
-                       shipping_address, payment_method, updated_at)
-                   VALUES (?,?,?,?,?, 'pending', ?,?,?,?)""",
+                       shipping_address, payment_method, updated_at, reserved_until)
+                   VALUES (?,?,?,?,?, 'pending', ?,?,?,?,?)""",
                 (order_id, buyer_id, product["seller_id"], product_id, product["price"], now,
-                 json.dumps(shipping_address or {}), payment_method, now),
+                 json.dumps(shipping_address or {}), payment_method, now, _reserved_until(created)),
             )
-            # Reserve the one-off item so nobody else can buy it.
-            db.execute("UPDATE products SET status='sold', updated_at=? WHERE product_id=?", (now, product_id))
             order_ids.append(order_id)
     return order_ids
 
 
 def buyer_orders(buyer_id: str) -> list[dict[str, Any]]:
+    expire_unshipped_orders()
     return [_order(r) for r in rows(ORDER_SELECT + " WHERE o.buyer_id=? ORDER BY o.created_at DESC", (buyer_id,))]
 
 
@@ -273,10 +344,17 @@ def update_order_status(user_id: str, order_id: str, status: str) -> dict[str, A
         raise MarketplaceError(f"A {role} cannot change a {record['status']} order to {status}.", 409)
     now = utc_now()
     with connection() as db:
-        db.execute("UPDATE orders SET status=?, updated_at=? WHERE order_id=?", (status, now, order_id))
+        # Guarded on the status we checked, so a concurrent change (or the 72 h expiry)
+        # cannot be overwritten.
+        changed = db.execute(
+            "UPDATE orders SET status=?, updated_at=? WHERE order_id=? AND status=?",
+            (status, now, order_id, record["status"]),
+        ).rowcount
+        if not changed:
+            raise MarketplaceError("This order was just updated. Refresh and try again.", 409)
         if status == "cancelled":
             # The item goes back on sale.
-            db.execute("UPDATE products SET status='active', updated_at=? WHERE product_id=?",
+            db.execute("UPDATE products SET status='active', updated_at=? WHERE product_id=? AND status='sold'",
                        (now, record["product_id"]))
         elif status == "shipped":
             # A piece listed from the seller's wardrobe has left it: stop suggesting it in outfits.
@@ -289,6 +367,7 @@ def update_order_status(user_id: str, order_id: str, status: str) -> dict[str, A
 
 
 def seller_dashboard(seller_id: str) -> dict[str, Any]:
+    expire_unshipped_orders()
     listings = [_product(r) for r in rows(PRODUCT_SELECT + " WHERE p.seller_id=? ORDER BY p.created_at DESC", (seller_id,))]
     orders = [_order(r) for r in rows(ORDER_SELECT + " WHERE o.seller_id=? ORDER BY o.created_at DESC", (seller_id,))]
     earned = [order for order in orders if order["status"] in {"shipped", "completed"}]
@@ -320,6 +399,8 @@ def start_conversation(user_id: str, product_id: str, buyer_id: str | None = Non
             raise MarketplaceError("This is your own listing.", 409)
     else:
         buyer_id = user_id
+    if moderation.blocked_between(product["seller_id"], buyer_id):
+        raise MarketplaceError("You can't message this user.", 403)
     existing = row(
         "SELECT conversation_id FROM conversations WHERE product_id=? AND buyer_id=?", (product_id, buyer_id),
     )
@@ -386,7 +467,11 @@ def list_conversations(user_id: str) -> list[dict[str, Any]]:
         CONVERSATION_SELECT + " WHERE c.buyer_id=? OR c.seller_id=? ORDER BY c.updated_at DESC",
         (user_id, user_id),
     )
-    return [_conversation(user_id, record) for record in records]
+    hidden = moderation.hidden_from(user_id)
+    return [
+        _conversation(user_id, record) for record in records
+        if (record["seller_id"] if record["buyer_id"] == user_id else record["buyer_id"]) not in hidden
+    ]
 
 
 def conversation_messages(user_id: str, conversation_id: str) -> list[dict[str, Any]]:
@@ -407,7 +492,9 @@ def conversation_messages(user_id: str, conversation_id: str) -> list[dict[str, 
 
 
 def send_message(user_id: str, conversation_id: str, body: str) -> dict[str, Any]:
-    get_conversation(user_id, conversation_id)  # access check
+    conversation = get_conversation(user_id, conversation_id)  # access check
+    if moderation.blocked_between(user_id, conversation["otherUser"]["id"]):
+        raise MarketplaceError("You can't message this user.", 403)
     text = body.strip()
     if not text:
         raise MarketplaceError("Message cannot be empty.")

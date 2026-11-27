@@ -1,11 +1,70 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+import re
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
+
+# -- shared field types (4.8: every client-supplied string and list is bounded) -------
+Short = Annotated[str, Field(max_length=80)]
+Id = Annotated[str, Field(min_length=1, max_length=100)]
+Tags = Annotated[list[Annotated[str, Field(max_length=40)]], Field(max_length=30)]
+IdList = Annotated[list[Id], Field(max_length=50)]
+_EMAIL = re.compile(r"^[^@\s]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
+# Images AURA itself stored (listing / profile photos). Outside URLs are not accepted:
+# they would let one user make every viewer's app fetch a URL of their choosing.
+_PUBLIC_PHOTO = re.compile(r"^/marketplace/images/[0-9a-f]{32}\.(?:jpg|png|webp)$")
+
+
+def _email(value: str) -> str:
+    value = value.strip()
+    if len(value) > 254 or not _EMAIL.match(value):
+        raise ValueError("Enter a valid email address.")
+    return value
+
+
+def _public_photo(value: str) -> str:
+    if not _PUBLIC_PHOTO.match(value):
+        raise ValueError("Use a photo uploaded to AURA.")
+    return value
+
+
+Email = Annotated[str, AfterValidator(_email)]
+PublicPhoto = Annotated[str, AfterValidator(_public_photo)]
 
 Category = Literal["Top", "Bottom", "Dress", "Footwear", "Outerwear", "Accessory"]
+
+
+Cm = Annotated[float, Field(gt=0, le=300)]
+
+
+class GarmentMeasurements(BaseModel):
+    """Flat garment measurements in cm (4.11): laid flat, edge to edge."""
+    chest_flat_cm: Cm | None = None
+    waist_flat_cm: Cm | None = None
+    hip_flat_cm: Cm | None = None
+    length_cm: Cm | None = None   # tops/dresses: high point of the shoulder to the hem
+    inseam_cm: Cm | None = None   # bottoms
+
+
+class GarmentSize(BaseModel):
+    """A garment's size (4.11). Send an empty object to clear it."""
+    label: str | None = Field(default=None, max_length=20)
+    chart: Literal["women", "men", "unisex"] | None = None
+    measurements: GarmentMeasurements | None = None
+
+
+class MeasurementUpdate(BaseModel):
+    """Body measurements typed by the user, in cm (4.11). null clears a typed value."""
+    chest: float | None = None
+    waist: float | None = None
+    hip: float | None = None
+    shoulder: float | None = None
+    inseam: float | None = None
+    arm: float | None = None
+    torso: float | None = None
+    height_cm: float | None = Field(default=None, ge=120, le=230)
 
 
 class Prediction(BaseModel):
@@ -39,35 +98,62 @@ class ClothingItemResponse(BaseModel):
     style_tags: list[str] = Field(default_factory=list)
     occasion_tags: list[str] = Field(default_factory=list)
     available: bool = True
+    size: GarmentSize | None = None
     created_at: str
 
 
 class ClothingItemUpdate(BaseModel):
     category: Category | None = None
-    subcategory: str | None = None
-    color_name: str | None = None
-    pattern: str | None = None
-    fabric: str | None = None
-    fit: str | None = None
-    texture: str | None = None
-    seasons: list[str] | None = None
-    style_tags: list[str] | None = None
-    occasion_tags: list[str] | None = None
+    subcategory: Short | None = None
+    color_name: Short | None = None
+    pattern: Short | None = None
+    fabric: Short | None = None
+    fit: Short | None = None
+    texture: Short | None = None
+    seasons: Tags | None = None
+    style_tags: Tags | None = None
+    occasion_tags: Tags | None = None
     available: bool | None = None
+    size: GarmentSize | None = None
 
 
 class PreferenceUpdate(BaseModel):
-    display_name: str | None = None
-    preferred_colors: list[str] = Field(default_factory=list)
-    avoided_colors: list[str] = Field(default_factory=list)
-    preferred_styles: list[str] = Field(default_factory=list)
-    disliked_styles: list[str] = Field(default_factory=list)
-    fit_preference: str | None = None
+    display_name: str | None = Field(default=None, max_length=100)
+    preferred_colors: Tags = Field(default_factory=list)
+    avoided_colors: Tags = Field(default_factory=list)
+    preferred_styles: Tags = Field(default_factory=list)
+    disliked_styles: Tags = Field(default_factory=list)
+    fit_preference: Short | None = None
 
 
 class ImportLinkRequest(BaseModel):
     user_id: str = Field(min_length=1, max_length=100)
     url: str = Field(min_length=4, max_length=2048)
+
+
+class ImportCandidate(BaseModel):
+    index: int
+    label: str
+    image_url: str
+
+
+class ImportPreviewResponse(BaseModel):
+    """4.2b: what the app shows before an imported or uploaded item is created."""
+    preview_id: str
+    suggested_category: Category | None
+    person_found: bool
+    original_url: str
+    candidates: dict[Category, list[ImportCandidate]] = Field(default_factory=dict)
+    source_title: str | None = None
+    suggested_size: str | None = None
+    expires_at: float
+
+
+class ImportConfirm(BaseModel):
+    choice: Literal["cutout", "original"]
+    category: Category
+    index: int = Field(default=0, ge=0, le=9)
+    size: GarmentSize | None = None
 
 
 class DonationRequest(BaseModel):
@@ -113,34 +199,49 @@ class RecommendationResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    user_id: str
-    recommendation_id: str | None = None
-    item_ids: list[str] = Field(min_length=1)
+    user_id: Id
+    recommendation_id: str | None = Field(default=None, max_length=100)
+    item_ids: list[Id] = Field(min_length=1, max_length=20)
     action: Literal["skip", "save", "wear", "like", "dislike", "rate"]
     rating: int | None = Field(default=None, ge=1, le=5)
 
 
 class SignupRequest(BaseModel):
     full_name: str = Field(min_length=2, max_length=100)
-    email: str = Field(min_length=5, max_length=254)
+    email: Email
     password: str = Field(min_length=8, max_length=128)
+    # "web" sessions last 7 days, "app" sessions 30 (4.7).
+    client: Literal["app", "web"] = "app"
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+    client: Literal["app", "web"] = "app"
+
+
+class ReportCreate(BaseModel):
+    target_type: Literal["listing", "conversation", "post", "user"]
+    target_id: Id
+    reason: Literal["spam", "scam", "offensive", "harassment", "prohibited_item", "other"]
+    details: str = Field(default="", max_length=1000)
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
 
 
 class ProfileUpdate(BaseModel):
-    fullName: str | None = None
-    avatarUrl: str | None = None
-    location: str | None = None
-    stylePreferences: list[str] | None = None
-    bodyShape: str | None = None
-    skinTone: str | None = None
-    heightCm: int | None = None
-    topSize: str | None = None
-    bottomSize: str | None = None
+    fullName: str | None = Field(default=None, min_length=1, max_length=100)
+    # Set by POST /users/me/photo; null removes the picture.
+    avatarUrl: PublicPhoto | None = None
+    location: str | None = Field(default=None, max_length=120)
+    stylePreferences: Tags | None = None
+    bodyShape: Short | None = None
+    skinTone: Short | None = None
+    heightCm: int | None = Field(default=None, ge=50, le=260)
+    topSize: str | None = Field(default=None, max_length=20)
+    bottomSize: str | None = Field(default=None, max_length=20)
     profileComplete: bool | None = None
 
 
@@ -190,8 +291,8 @@ class ChatRequest(BaseModel):
 class ProductCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     price: float = Field(gt=0, le=1_000_000)
-    image_urls: list[str] = Field(min_length=1, max_length=5)
-    category: str
+    image_urls: list[PublicPhoto] = Field(min_length=1, max_length=5)
+    category: Short
     condition: Literal["new", "like_new", "good", "fair"]
     description: str = Field(default="", max_length=2000)
     size: str = Field(default="", max_length=20)
@@ -199,12 +300,12 @@ class ProductCreate(BaseModel):
 
 
 class PostCreate(BaseModel):
-    outfit_image_url: str
+    outfit_image_url: PublicPhoto
     caption: str = Field(max_length=1000)
-    product_ids: list[str] = Field(default_factory=list)
+    product_ids: IdList = Field(default_factory=list)
 
 
 class TryOnRequest(BaseModel):
     item_ids: list[str] = Field(min_length=1, max_length=8)
     view: Literal["front", "side"] = "front"
-    recommendation_id: str | None = None
+    recommendation_id: str | None = Field(default=None, max_length=100)

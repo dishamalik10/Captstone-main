@@ -7,9 +7,20 @@ from typing import Any
 
 from services.fashion_knowledge import retrieve_guidance
 from services.fashion_analysis import analyze_outfit
-from services.local_llm import LocalModelError, generate_response, get_model_info
+from services import stylist_selector
+from services.local_llm import LocalModelError
 from services.aura_fashion_lm import explain_outfit, model_info as fashion_lm_info
 from services.fashion_contract import InvalidFashionResponse
+
+
+# The comparison is written by whichever GGUF serves chat (the fine-tuned stylist by
+# default), so an 8 GB host never holds a second language model just for this text.
+def get_model_info() -> dict[str, Any]:
+    return stylist_selector.chat_llm().get_model_info()
+
+
+def generate_response(prompt: str, **kwargs: Any) -> str:
+    return stylist_selector.chat_llm().generate_response(prompt, **kwargs)
 
 GARMENT_TERMS = {
     "shirt", "shirts", "tee", "t-shirt", "tshirts", "blouse", "top", "tops",

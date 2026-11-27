@@ -235,6 +235,10 @@ class CatVTON:
                 person_latent = latents.split(latents.shape[-2] // 2, dim=-2)[0]
                 decoded = self.vae.decode(person_latent.float() / self.vae.config.scaling_factor).sample
             array = ((decoded[0].float().clamp(-1, 1) + 1) * 127.5).permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+            if self.device.type == "mps":
+                # Hand the ~2 GB denoising workspace back between layers and while idle.
+                del decoded
+                torch.mps.empty_cache()
             result = Image.fromarray(array)
             # Keep every pixel outside the mask from the original photo (face, hands, background).
             soft = Image.fromarray((mask_array * 255).astype(np.uint8)).filter(_feather(width))

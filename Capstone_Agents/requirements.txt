@@ -6,6 +6,9 @@ python-dotenv==1.2.1
 langgraph==1.2.7
 langchain-core==1.4.8
 requests==2.34.2
+# Already installed by requests; imported directly by the link importer's pinned-IP fetcher.
+urllib3==2.8.0
+certifi==2026.10.23
 python-multipart==0.0.30
 tensorflow==2.21.0
 numpy>=1.26,<3

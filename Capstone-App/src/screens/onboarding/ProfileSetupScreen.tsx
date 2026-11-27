@@ -14,6 +14,7 @@ import type { StylePreference, BodyShape, SkinTone, Size, User } from '@/types';
 import { hapticLight } from '@/utils/haptics';
 import { cn } from '@/utils/helpers';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { apiErrorMessage } from '@/services/api';
 import { layout, motion } from '@/constants/theme';
 
 interface ProfileSetupScreenProps {
@@ -101,13 +102,7 @@ export function ProfileSetupScreen({
           skinTone,
       });
     } catch (error) {
-      const message =
-        typeof error === 'object' &&
-        error !== null &&
-        'response' in error
-          ? 'Your session expired. Please log in again.'
-          : 'Could not save your profile. Check the backend and try again.';
-      setSaveError(message);
+      setSaveError(apiErrorMessage(error, 'Could not save your profile. Try again.'));
     } finally {
       setSaving(false);
     }

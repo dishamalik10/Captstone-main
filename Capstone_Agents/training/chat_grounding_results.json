@@ -1,0 +1,234 @@
+{
+  "model": "fine_tuned_stylist",
+  "prompts": 20,
+  "first_draft_invented_rate": 0.1,
+  "regenerated_rate": 0.1,
+  "fallback_rate": 0.0,
+  "shown_invented_rate": 0.0,
+  "results": [
+    {
+      "message": "What should I wear to college tomorrow?",
+      "occasion": "casual",
+      "reply": "I'd go with the white t-shirt, dark blue jeans, and white sneakers. The white, dark blue, and white palette holds together, and it reads right for college. Another option is the black dress, which is styled similarly.",
+      "seconds": 1.6,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Suggest something casual for a weekend brunch",
+      "occasion": "casual",
+      "reply": "I'd go with the white t-shirt, dark blue jeans, and white sneakers. It reads right for a weekend brunch. Its pieces have the strongest hold on it of any option. It also reads right for travel. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It also reads right for wedding. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It reads right for meeting. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It also reads right for interview. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It reads right for wedding party. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It also reads right for date. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It reads right for meeting. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It also reads right for wedding. It pairs the white t-shirt with the dark blue jeans, finished with the white sneakers. It reads right for interview. It pairs the white t-shirt with the dark blue jeans, finishe",
+      "seconds": 3.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "I need an outfit for a client meeting",
+      "occasion": "office",
+      "reply": "I'd go with the light blue shirt paired with the beige trousers, finished with the white sneakers. Its pieces have the strongest palette of blue, beige, white. Its pieces also read right for a meeting. Another option is the black dress, which is styled similarly but is styled more for party.",
+      "seconds": 1.2,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "What's a good office look for Monday?",
+      "occasion": "office",
+      "reply": "I'd go with the light blue shirt, beige trousers, and white sneakers. Its pieces have the strongest palette of the options. It also reads right for Monday. Another option is the black dress, but it's styled more for party. It also reads right for Monday. It's a coherent look for Monday.",
+      "seconds": 0.9,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Plan an outfit for a dinner date",
+      "occasion": "date",
+      "reply": "I'd go with the black dress, finished with the olive jacket. The black dress reads right for a date, and the olive jacket pairs it. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for travel or party. It also reads right for",
+      "seconds": 7.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "I have a party tonight, what should I wear?",
+      "occasion": "date",
+      "reply": "I'd go with the black dress + olive jacket. It reads right for a party. The black dress, finished with the olive jacket, suits party style. It also reads right for travel. It suits travel style. For ceremony, it reads right for that. It reads right for wedding. It reads right for meeting. It suits wedding style. It suits interview style. It suits meeting, party, travel. It suits interview, meeting. It suits interview, meeting, party, travel. It suits interview, meeting, party, travel, wedding. It suits interview, meeting, party, travel, wedding, travel, date, date, meeting, date, interview, party, wedding, travel, party, date, wedding, travel, party, interview, travel, party, meeting, wedding, date, travel, party, meeting, party, interview, meeting, travel, wedding, party, travel, date, date, wedding, interview, travel, date, party, meeting, wedding, travel, meeting, party, travel, wedding, date, interview, travel, party, meeting, travel, date, meeting, party, travel, date, meeting, party, travel, date, meeting, party, travel, date, meeting, party, travel, date, meeting, party",
+      "seconds": 4.0,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Something comfortable for a long flight",
+      "occasion": "casual",
+      "reply": "I'd go with the white t-shirt + dark blue jeans + white sneakers. It reads right for a flight. Another option is the light blue shirt + dark blue jeans + white sneakers. It also reads right for a flight. It's styled for travel.",
+      "seconds": 2.8,
+      "shown_invented": [],
+      "attempts": 2,
+      "first_invented": [
+        "white shirt"
+      ],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "What goes well with my beige trousers?",
+      "occasion": null,
+      "reply": "Beige is a neutral shade, and it reads right for casual or travel. It pairs well with white, black, or grey. You could finish a look with the white sneakers or the black dress. Another option is the olive jacket with the white sneakers. What type of event are you going to?",
+      "seconds": 1.1,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "How do I style a black dress?",
+      "occasion": null,
+      "reply": "For a black dress, it reads right for party. A black dress is a coherent look. It pairs the black dress, finished with the white sneakers. Another option is the black dress, olive jacket. If you have the white sneakers, they would keep it casual.",
+      "seconds": 0.9,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Which colours suit a light blue shirt?",
+      "occasion": null,
+      "reply": "A light blue shirt pairs well with white, dark blue, and beige. Its light blue has a calming effect. It also reads right for travel or casual. Light blue, white, dark blue, beige palette holds together. It also suits meeting or interview. Light blue, white, dark blue, beige, black palette is for date or wedding. It also suits party or wedding. For meeting, it reads right for date or interview. It also suits wedding or date. Light blue, white, dark blue, beige, black palette is for date or wedding. It also suits party or wedding. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits party or wedding. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits wedding or date. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits party or wedding. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits wedding or date. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits wedding or date. Light blue, white, dark blue, beige palette is for meeting or interview. It also suits wedding or date. Light blue",
+      "seconds": 3.7,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Is it okay to wear sneakers to the office?",
+      "occasion": null,
+      "reply": "It's suitable to wear white sneakers to the office. Their white sneakers pair with the white t-shirt, and they read right for a meeting. Another option is the white sneakers with the beige trousers. They suit a meeting, but are styled more for casual. For a meeting, a pair of white sneakers would suit it. If you have white sneakers, they would keep it casual.",
+      "seconds": 1.2,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "What's trending this season?",
+      "occasion": null,
+      "reply": "I'm sorry, but I don't have real-time trend data. However, I can help you style pieces from your wardrobe. What would you like to do?",
+      "seconds": 0.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "I don't own a blazer. What do I wear to an interview?",
+      "occasion": null,
+      "reply": "For an interview, you can pair the white t-shirt with the light blue shirt, finished with the dark blue jeans, beige trousers, black dress, white sneakers, and olive jacket. If you don't have a blazer, you could wear the white t-shirt with the light blue shirt, finished with the dark blue jeans, beige trousers, black dress, white sneakers, and olive jacket.",
+      "seconds": 2.2,
+      "shown_invented": [],
+      "attempts": 2,
+      "first_invented": [
+        "blazer"
+      ],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Can I wear my olive jacket in the rain?",
+      "occasion": null,
+      "reply": "The olive jacket pairs well with the white t-shirt and light blue shirt, and it reads right for rain. It holds up in rain. It also suits winter weather. Its pieces are styled for that. If it's rain, it suits it. Another look is a white t-shirt with the olive jacket. It suits spring weather. It also reads right for that. Another look is a light blue shirt with the olive jacket. It reads right for spring. It also suits that. It's a coherent look. Its pieces are styled for that. Another look is a white t-shirt with the olive jacket, finished with the light blue shirt. It reads right for winter. It also suits that. It's a coherent look. Its pieces are styled for that. It is styled for winter. Its pieces are styled for that. Another look is the white t-shirt with the olive jacket, finished with the beige trousers. It reads right for date. It also suits that. It is styled for date. Its pieces are styled for that. It is styled for casual. Its pieces are styled for that. It is styled for meeting. Its pieces are styled for meeting. It is styled for interview. Its pieces are styled for interview. It is styled for wedding. Its pieces are styled for wedding.",
+      "seconds": 3.7,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Make my outfit look more formal",
+      "occasion": null,
+      "reply": "For a more formal look, you could finish the black dress with the olive jacket. It pairs the black dress, finished with the olive jacket. If you have white sneakers, they would keep it casual.",
+      "seconds": 2.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "kal shaadi hai, kya pehnu?",
+      "occasion": null,
+      "reply": "Kaal shaadi hai, usse pehle, yeh kyun hai? Iske pehle, uske samay ka dastar kya hai?",
+      "seconds": 0.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "What shoes go with my dark jeans?",
+      "occasion": null,
+      "reply": "For your dark jeans, you might pair them with the black dress. It reads right for a date or meeting. Another option is the white sneakers with the black dress. It suits party or interview. If you have white sneakers, they would keep it casual.",
+      "seconds": 4.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "How should I layer for a cold morning?",
+      "occasion": null,
+      "reply": "For a cold morning, start with the lightest layer, which is the white t-shirt. It reads right for a casual meeting. You could add the light blue shirt under it for a cohesive look. Finish with the white sneakers. Another option is the beige trousers, finished with the white sneakers. It reads right for meeting or travel. Another option is the dark blue jeans, finished with the white sneakers. It reads right for date. If you have white sneakers, they would keep it casual. For travel, you might layer the white t-shirt, light blue shirt, dark blue jeans, and beige trousers, finished with the white sneakers. It suits travel. For meeting, the white t-shirt, light blue shirt, dark blue jeans, and beige trousers, finished with the white sneakers, reads right. It also suits meeting. Another option is the black dress, finished with the olive jacket. It reads right for interview. It also suits interview. Another option is the black dress, finished with the olive jacket, and white sneakers. It reads right for interview. It also suits interview. For meeting, the white t-shirt, light blue shirt, dark blue jeans, and beige trousers, finished with the white sneakers, reads right. It also suits me",
+      "seconds": 4.0,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "Give me three ways to wear my white t-shirt",
+      "occasion": null,
+      "reply": "For a casual look, pair the white t-shirt with the light blue shirt and dark blue jeans. It reads right for meeting. Another option is a coherent look but is styled more for travel. A third is a coherent look but is styled more for wedding. It reads right for meeting. Another option is a coherent look but is styled more for wedding. It reads right for meeting. Another option is a coherent look but is styled more for travel. It reads right for meeting.",
+      "seconds": 1.5,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    },
+    {
+      "message": "thanks, that helps!",
+      "occasion": null,
+      "reply": "You're welcome! Let's put together a look for you. For interview, you'd be styled for meeting. What do you prefer, a white t-shirt with the light blue shirt, or the dark blue jeans?",
+      "seconds": 0.7,
+      "shown_invented": [],
+      "attempts": 1,
+      "first_invented": [],
+      "source": "model",
+      "final_invented": []
+    }
+  ]
+}

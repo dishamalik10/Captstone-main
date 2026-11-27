@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
+from services.media_paths import migrate_to_names
 from settings import settings
 
 
@@ -97,6 +98,65 @@ def init_database() -> None:
                 rating INTEGER,
                 created_at TEXT NOT NULL
             );
+
+            -- Report and block (4.4, services/moderation_service.py). Reports are reviewed
+            -- by hand with scripts/review_reports.py; the snapshot keeps the evidence.
+            CREATE TABLE IF NOT EXISTS reports (
+                report_id TEXT PRIMARY KEY,
+                reporter_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                target_owner_id TEXT,
+                reason TEXT NOT NULL,
+                details TEXT NOT NULL DEFAULT '',
+                snapshot_json TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL DEFAULT 'open',
+                created_at TEXT NOT NULL,
+                resolved_at TEXT,
+                UNIQUE(reporter_id, target_type, target_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_reports_status ON reports(status, created_at);
+
+            CREATE TABLE IF NOT EXISTS blocks (
+                blocker_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                blocked_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (blocker_id, blocked_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_blocks_blocked ON blocks(blocked_id);
+
+            -- Import previews (4.2b, services/import_previews.py): the photo and candidate
+            -- cut-outs shown before an item is created. Deleted after 1 hour.
+            CREATE TABLE IF NOT EXISTS import_previews (
+                preview_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                source_url TEXT,
+                source_title TEXT,
+                suggested_category TEXT,
+                person_found INTEGER NOT NULL DEFAULT 0,
+                files_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_import_previews_expiry ON import_previews(expires_at);
+
+            -- Body measurements in cm (4.11, services/body_measurements.py). Body data:
+            -- deleted with "Delete my body data" and with the account.
+            CREATE TABLE IF NOT EXISTS body_measurements (
+                user_id TEXT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                estimate_json TEXT NOT NULL DEFAULT '{}',
+                manual_json TEXT NOT NULL DEFAULT '{}',
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL
+            );
+
+            -- Rate-limit events (services/rate_limits.py); old rows are pruned on use.
+            CREATE TABLE IF NOT EXISTS rate_events (
+                bucket TEXT NOT NULL,
+                key TEXT NOT NULL,
+                at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_rate_events ON rate_events(bucket, key, at);
 
             CREATE TABLE IF NOT EXISTS sessions (
                 token_hash TEXT PRIMARY KEY,
@@ -214,9 +274,16 @@ def init_database() -> None:
             "avatar_url": "TEXT",
             "location": "TEXT NOT NULL DEFAULT ''",
             "profile_json": "TEXT NOT NULL DEFAULT '{}'",
+            # When the user confirmed "this is me, I'm 18+, store my photo" (4.3).
+            "body_consent_at": "TEXT",
         }.items():
             if name not in existing:
                 db.execute(f"ALTER TABLE users ADD COLUMN {name} {definition}")
+        # Profile pictures must be photos AURA stored (4.8). Older rows held device-local
+        # paths (file://, blob:) or outside URLs, which other users' apps would fetch.
+        db.execute(
+            "UPDATE users SET avatar_url=NULL WHERE avatar_url IS NOT NULL AND avatar_url NOT LIKE '/marketplace/images/%'"
+        )
         clothing_columns = {column["name"] for column in db.execute("PRAGMA table_info(clothing_items)")}
         if "embedding" not in clothing_columns:
             # 512-d float16 visual embedding from the garment CNN (1 KiB per item).
@@ -225,18 +292,47 @@ def init_database() -> None:
             # Shop link and product title for items imported from a shopping link.
             if name not in clothing_columns:
                 db.execute(f"ALTER TABLE clothing_items ADD COLUMN {name} TEXT")
+        if "category_source" not in clothing_columns:
+            # "user" when the user confirmed a category the CNN disagreed with (4.2b): it
+            # is kept as chosen and the item is flagged for review.
+            db.execute("ALTER TABLE clothing_items ADD COLUMN category_source TEXT")
+        if "size_json" not in clothing_columns:
+            # Garment size (4.11): {"label", "chart", "measurements": {...flat cm}}; NULL = unknown.
+            db.execute("ALTER TABLE clothing_items ADD COLUMN size_json TEXT")
         if "donated_at" not in clothing_columns:
             # Set when the user donates an unworn item; the item is also marked unavailable.
             db.execute("ALTER TABLE clothing_items ADD COLUMN donated_at TEXT")
+        preview_columns = {column["name"] for column in db.execute("PRAGMA table_info(import_previews)")}
+        if "suggested_size" not in preview_columns:
+            # A size read from the shop page (4.11), offered at confirm time.
+            db.execute("ALTER TABLE import_previews ADD COLUMN suggested_size TEXT")
+        # Photos are stored by file name inside the upload folder (portable data).
+        migrate_to_names(db, "clothing_items", ("image_path",))
         # Marketplace listing details and order delivery info.
         product_columns = {column["name"] for column in db.execute("PRAGMA table_info(products)")}
         for name in ("size", "brand", "wardrobe_item_id", "updated_at"):
             if name not in product_columns:
                 db.execute(f"ALTER TABLE products ADD COLUMN {name} TEXT")
+        # Where a slate was shown (M6): "recommend" (outfit screen) or "chat". Rows written
+        # before this column existed cannot be told apart and default to "recommend".
+        if "surface" not in recommendation_columns:
+            db.execute("ALTER TABLE recommendations ADD COLUMN surface TEXT NOT NULL DEFAULT 'recommend'")
+        if "explanation_source" not in recommendation_columns:
+            db.execute("ALTER TABLE recommendations ADD COLUMN explanation_source TEXT")
         order_columns = {column["name"] for column in db.execute("PRAGMA table_info(orders)")}
-        for name in ("shipping_address", "payment_method", "updated_at"):
+        for name in ("shipping_address", "payment_method", "updated_at", "reserved_until"):
             if name not in order_columns:
                 db.execute(f"ALTER TABLE orders ADD COLUMN {name} TEXT")
+        # Orders placed before reservations existed get the same 72 h hold from their creation.
+        for order in db.execute(
+            "SELECT order_id, created_at FROM orders WHERE status='pending' AND reserved_until IS NULL"
+        ).fetchall():
+            created = datetime.fromisoformat(order["created_at"])
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            db.execute("UPDATE orders SET reserved_until=? WHERE order_id=?",
+                       ((created + timedelta(hours=72)).isoformat(), order["order_id"]))
+        db.execute("CREATE INDEX IF NOT EXISTS ix_orders_pending ON orders(status, reserved_until)")
         chat_columns = {column["name"] for column in db.execute("PRAGMA table_info(chat_messages)")}
         if "metadata_json" not in chat_columns:
             db.execute("ALTER TABLE chat_messages ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")

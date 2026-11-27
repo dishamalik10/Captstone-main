@@ -7,6 +7,8 @@ Everything runs on this machine; nothing is sent to a cloud API. About 2.4 GB in
 * CatVTON "dresscode-16k-512" self-attention weights                     ~0.2 GB  CC BY-NC-SA 4.0 (non-commercial)
 * MediaPipe Pose Landmarker (full) and Selfie Multiclass segmenter       ~25 MB   Apache 2.0
 * rembg ISNet general-use background remover (for garment photos)       ~0.18 GB MIT
+* SegFormer-B2 Clothes (ONNX), garment isolation for imports/uploads    ~0.11 GB "other" ->
+  NVlabs SegFormer licence, believed non-commercial (training/FASHION_DATASET_LICENSE_AUDIT.md)
 
     python -m training.download_tryon_models
 
@@ -22,6 +24,12 @@ from pathlib import Path
 from settings import settings
 
 HF = "https://huggingface.co/{repo}/resolve/main/{path}"
+# SegFormer is pinned to a revision and checked by SHA-256 (ENGINEERING_PLAN 4.2b).
+SEGFORMER_REVISION = "584abc1e1d260e23c0fc627c5217a09b2b461046"
+SEGFORMER = f"https://huggingface.co/mattmdjaga/segformer_b2_clothes/resolve/{SEGFORMER_REVISION}/{{path}}"
+SHA256 = {
+    "segformer_b2_clothes/model.onnx": "a93a8dac171b5c1fcc53632a8bfc180bfd9759ea69a3e207451bb07f76add54f",
+}
 FILES = {
     # target path (relative to the try-on dir) -> source URL
     "sd-inpainting/unet/config.json": HF.format(repo="stable-diffusion-v1-5/stable-diffusion-inpainting", path="unet/config.json"),
@@ -35,6 +43,8 @@ FILES = {
     "pose_landmarker_full.task": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
     "selfie_multiclass_256x256.tflite": "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite",
     "isnet-general-use.onnx": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx",
+    "segformer_b2_clothes/model.onnx": SEGFORMER.format(path="onnx/model.onnx"),
+    "segformer_b2_clothes/config.json": SEGFORMER.format(path="config.json"),
 }
 CHUNK = 1 << 20
 
@@ -144,14 +154,38 @@ def _fetch(url: str, target: Path) -> None:
     partial.rename(target)
 
 
-def download(root: Path | None = None) -> Path:
+def sha256_of(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while block := handle.read(16 * CHUNK):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _verify(relative: str, target: Path) -> None:
+    expected = SHA256.get(relative)
+    if expected and sha256_of(target) != expected:
+        target.unlink()
+        raise SystemExit(f"{relative} failed its SHA-256 check and was deleted; run the command again.")
+
+
+def download(root: Path | None = None, only: str | None = None) -> Path:
     root = Path(root or settings.tryon_model_dir)
     # Small files first so body analysis works while the large weights are still downloading.
     for relative, url in sorted(FILES.items(), key=lambda entry: "safetensors" in entry[0]):
+        if only and not relative.startswith(only):
+            continue
         _fetch(url, root / relative)
+        _verify(relative, root / relative)
     print(f"Try-on models ready in {root}")
     return root
 
 
 if __name__ == "__main__":
-    download(Path(sys.argv[1]) if len(sys.argv) > 1 else None)
+    # python -m training.download_tryon_models [DIR] [--only segformer_b2_clothes]
+    args = sys.argv[1:]
+    only = args[args.index("--only") + 1] if "--only" in args else None
+    positional = [a for i, a in enumerate(args) if a != "--only" and (i == 0 or args[i - 1] != "--only")]
+    download(Path(positional[0]) if positional else None, only)

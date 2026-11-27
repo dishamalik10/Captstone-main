@@ -15,6 +15,7 @@
       }
     },
     "android": {
+      "package": "com.aurastylist.app",
       "adaptiveIcon": {
         "backgroundColor": "#0E0D0B",
         "foregroundImage": "./assets/android-icon-foreground.png",

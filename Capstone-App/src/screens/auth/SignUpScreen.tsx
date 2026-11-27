@@ -9,6 +9,7 @@ import { PasswordStrength } from '@/components/shared/PasswordStrength';
 interface SignUpScreenProps {
   onSignUp: (data: { fullName: string; email: string; password: string }) => void;
   onLogin: () => void;
+  onPrivacy?: () => void;
   loading?: boolean;
 }
 
@@ -18,7 +19,7 @@ const SOCIAL = [
   { id: 'facebook', label: 'Continue with Facebook', icon: 'logo-facebook' as const },
 ];
 
-export function SignUpScreen({ onSignUp, onLogin, loading }: SignUpScreenProps) {
+export function SignUpScreen({ onSignUp, onLogin, onPrivacy, loading }: SignUpScreenProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -86,6 +87,13 @@ export function SignUpScreen({ onSignUp, onLogin, loading }: SignUpScreenProps) 
       />
 
       <Button label="Create account" size="lg" onPress={handleSubmit} loading={loading} className="mt-2" />
+      {onPrivacy ? (
+        <Pressable accessibilityRole="link" onPress={onPrivacy} className="items-center py-3">
+          <Text className="text-text-secondary font-body text-sm">
+            By creating an account you agree to the <Text className="text-text-primary underline">privacy policy</Text>.
+          </Text>
+        </Pressable>
+      ) : null}
 
       <OrDivider />
 

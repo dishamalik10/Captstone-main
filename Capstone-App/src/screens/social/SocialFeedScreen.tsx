@@ -6,6 +6,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { ScreenWrapper } from '@/components/shared/ScreenWrapper';
 import { Header } from '@/components/shared/Header';
+import { ReportButton, ReportSheet } from '@/components/shared/ReportSheet';
+import { useAuthStore } from '@/store/authStore';
+import type { SocialPost } from '@/types';
 import { AppImage } from '@/components/shared/AppImage';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -18,6 +21,8 @@ export function SocialFeedScreen() {
   const { data: feed, isLoading, isError, refetch } = useSocialFeed();
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const palette = useThemeColors();
+  const myId = useAuthStore((s) => s.user?.id);
+  const [reporting, setReporting] = useState<SocialPost | null>(null);
 
   const toggleLike = async (id: string) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -27,6 +32,12 @@ export function SocialFeedScreen() {
   return (
     <ScreenWrapper loading={isLoading} error={isError ? 'Failed to load feed' : null} onRetry={refetch} empty={!feed?.length} emptyTitle="No looks yet" emptyMessage="Follow people whose style you like and their outfits will appear here.">
       <Header title="Community" showBack onBack={() => navigation.goBack()} />
+      <ReportSheet
+        visible={reporting !== null}
+        onClose={() => setReporting(null)}
+        target={reporting ? { type: 'post', id: reporting.id, label: 'this post' } : undefined}
+        user={reporting ? { id: reporting.user.id, name: reporting.user.fullName } : undefined}
+      />
       <FlatList
         data={feed}
         keyExtractor={(item) => item.id}
@@ -43,6 +54,7 @@ export function SocialFeedScreen() {
                 <Text className="text-text-primary font-body-semibold ml-3">{item.user.fullName}</Text>
               </Pressable>
               <Button variant="secondary" size="sm" label="Follow" onPress={() => socialService.toggleFollow(item.user.id)} />
+              {item.user.id !== myId && <ReportButton label={`Report or block ${item.user.fullName}`} onPress={() => setReporting(item)} />}
             </View>
             <Pressable accessibilityLabel="View outfit">
               <AppImage source={{ uri: item.outfitImageUrl }} className="w-full aspect-[4/5]" contentFit="cover" />

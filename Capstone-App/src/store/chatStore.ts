@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ChatMessage } from '@/types';
 import { chatService } from '@/services';
+import { apiErrorMessage } from '@/services/api';
 
 interface ChatState {
   sessionId: string;
@@ -60,7 +61,7 @@ export const useChatStore = create<ChatState>((set) => ({
           role: 'assistant',
           content: modelUnavailable
             ? 'The local AI model is not installed yet. From Capstone_Agents, run `python -m training.download_model`, then restart the API.'
-            : 'I could not reach the styling service. Please check the backend and try again.',
+            : apiErrorMessage(error, 'Something went wrong with that message. Please try again.'),
           timestamp: new Date().toISOString(),
         }],
         isTyping: false,

@@ -60,10 +60,11 @@ FROM users u
 """
 
 
-def signup(full_name: str, email: str, password: str) -> tuple[dict, str]:
+def signup(full_name: str, email: str, password: str, client: str = "app") -> tuple[dict, str]:
     email = email.strip().lower()
     if row("SELECT user_id FROM users WHERE lower(email)=?", (email,)):
-        raise ValueError("An account with this email already exists.")
+        # Deliberately vague: a sign-up form must not confirm which emails have accounts.
+        raise ValueError("We couldn't create an account with these details. If you already have one, sign in instead.")
     user_id = f"user_{uuid.uuid4().hex[:16]}"
     now = utc_now()
     with connection() as db:
@@ -72,20 +73,25 @@ def signup(full_name: str, email: str, password: str) -> tuple[dict, str]:
                VALUES(?,?,?,?,?)""",
             (user_id, full_name.strip(), email, _password_hash(password), now),
         )
-    return get_user(user_id), create_session(user_id)
+    return get_user(user_id), create_session(user_id, client)
 
 
-def login(email: str, password: str) -> tuple[dict, str]:
+def login(email: str, password: str, client: str = "app") -> tuple[dict, str]:
     record = row("SELECT * FROM users WHERE lower(email)=?", (email.strip().lower(),))
     if not record or not record.get("password_hash") or not _verify_password(password, record["password_hash"]):
         raise ValueError("Invalid email or password.")
-    return get_user(record["user_id"]), create_session(record["user_id"])
+    return get_user(record["user_id"]), create_session(record["user_id"], client)
 
 
-def create_session(user_id: str) -> str:
+# Web tokens live in localStorage, where any injected script could read them, so web
+# sessions are short (4.7). The Android app keeps its token in the OS secure store.
+SESSION_DAYS = {"app": 30, "web": 7}
+
+
+def create_session(user_id: str, client: str = "app") -> str:
     token = secrets.token_urlsafe(32)
     digest = hashlib.sha256(token.encode()).hexdigest()
-    expires = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    expires = (datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS.get(client, 7))).isoformat()
     with connection() as db:
         db.execute(
             "INSERT INTO sessions(token_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)",
@@ -105,6 +111,12 @@ def session_user(token: str) -> dict | None:
 def logout(token: str) -> None:
     with connection() as db:
         db.execute("DELETE FROM sessions WHERE token_hash=?", (hashlib.sha256(token.encode()).hexdigest(),))
+
+
+def logout_everywhere(user_id: str) -> int:
+    """End every session of this user (all devices, including this one)."""
+    with connection() as db:
+        return db.execute("DELETE FROM sessions WHERE user_id=?", (user_id,)).rowcount
 
 
 def get_user(user_id: str) -> dict:
@@ -246,7 +258,7 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
         )
         from services.recommendation_service import recommend
 
-        suggestions, _agent_trace = recommend(user_id, occasion, 25.0, "Unknown", 12)
+        suggestions, _agent_trace = recommend(user_id, occasion, 25.0, "Unknown", 12, surface="chat")
         if suggestions:
             requested_colors = {
                 item["color_name"].lower()
@@ -266,6 +278,11 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
             ] or candidates
             candidates = candidates[:5]
             best = candidates[_choose_outfit(user_id, content, occasion, candidates, history, shown)]
+            from services.recommendation_service import discard_unshown
+
+            # Chat shows one outfit: keep only that row, so slate metrics and the audit
+            # trail reflect what the user saw (M6).
+            discard_unshown(user_id, best["recommendation_id"], suggestions)
             selected = ", ".join(
                 f"{item['color_name']} {item['subcategory']}" for item in best["items"]
             )
@@ -302,6 +319,10 @@ def chat(user_id: str, content: str, session_id: str = "legacy") -> dict:
         fallback=reply,
         occasion=occasion,
     )
+    if best is not None:
+        from services.recommendation_service import record_explanations
+
+        record_explanations(user_id, [{**best, "explanation": reply, "explanation_source": "chat_reply"}])
     now = utc_now()
     user_message = f"msg_{uuid.uuid4().hex[:16]}"
     assistant_message = f"msg_{uuid.uuid4().hex[:16]}"
@@ -371,6 +392,10 @@ def social_feed(viewer_id: str) -> list[dict]:
           ORDER BY p.created_at DESC""",
         (viewer_id,),
     )
+    from services.moderation_service import hidden_from
+
+    hidden = hidden_from(viewer_id)  # posts by users the viewer blocked (4.4)
+    records = [item for item in records if item["user_id"] not in hidden]
     return [{
         "id": item["post_id"],
         "user": {"id": item["user_id"], "fullName": item["display_name"] or "", "avatarUrl": item["avatar_url"]},
@@ -393,6 +418,8 @@ def create_post(user_id: str, data: dict) -> dict:
 
 def toggle_like(user_id: str, post_id: str) -> bool:
     with connection() as db:
+        if not db.execute("SELECT 1 FROM social_posts WHERE post_id=?", (post_id,)).fetchone():
+            raise LookupError("Post not found.")
         exists = db.execute("SELECT 1 FROM post_likes WHERE post_id=? AND user_id=?", (post_id, user_id)).fetchone()
         if exists:
             db.execute("DELETE FROM post_likes WHERE post_id=? AND user_id=?", (post_id, user_id))
@@ -405,6 +432,8 @@ def toggle_follow(follower_id: str, followed_id: str) -> bool:
     if follower_id == followed_id:
         raise ValueError("You cannot follow yourself.")
     with connection() as db:
+        if not db.execute("SELECT 1 FROM users WHERE user_id=?", (followed_id,)).fetchone():
+            raise LookupError("User not found.")
         exists = db.execute("SELECT 1 FROM follows WHERE follower_id=? AND followed_id=?", (follower_id, followed_id)).fetchone()
         if exists:
             db.execute("DELETE FROM follows WHERE follower_id=? AND followed_id=?", (follower_id, followed_id))
